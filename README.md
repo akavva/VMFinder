@@ -73,16 +73,6 @@ Then open your browser and access the **VMFinder** web interface.
 
 ---
 
-## 📷 Screenshots
-
-| Search VM | Disconnect NIC | Power Controls |
-|:----------|:---------------|:--------------|
-| ![Search Example](https://via.placeholder.com/300x150?text=Search+VM) | ![Disconnect Example](https://via.placeholder.com/300x150?text=Disconnect+NIC) | ![Control Example](https://via.placeholder.com/300x150?text=Control+VM) |
-
-> *You can replace these placeholders with your real screenshots.*
-
----
-
 ## ⚠️ Notes
 - **CORS** is enabled for all routes.
 - **SSL verification** is disabled (`ssl._create_unverified_context()` is used).
