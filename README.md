@@ -79,3 +79,9 @@ Then open your browser and access the **VMFinder** web interface.
 - Ensure your firewall allows connections to port 80 if you access the server externally.
 - Use **strong passwords** when setting up access control.
 - Review security best practices if deploying in production environments.
+
+## Contributing
+
+- Contributions are welcome!  
+- Please open an issue or a pull request to improve detection accuracy, code quality, or security.  
+
