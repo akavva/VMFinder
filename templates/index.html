@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>VMFinder</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #1c1c1c;
+            color: #ffffff;
+            margin: 0;
+            padding: 0;
+        }
+
+        h1 {
+            text-align: center;
+            margin: 30px 0;
+            font-size: 36px;
+            color: #8BC34A; /* VMware green color */
+        }
+
+        #searchForm {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        #searchInput {
+            padding: 10px;
+            border: 2px solid #8BC34A; /* VMware green color */
+            border-radius: 5px;
+            width: 300px;
+            background-color: #1c1c1c;
+            color: #ffffff;
+        }
+
+        button[type="submit"] {
+            padding: 10px 20px;
+            background-color: #8BC34A; /* VMware green color */
+            color: #ffffff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease-in-out;
+        }
+
+        button[type="submit"]:hover {
+            background-color: #689F38; /* Darker green for hover */
+        }
+
+        #searchResults {
+            margin: 0 auto;
+            max-width: 800px;
+            padding: 20px;
+            background-color: #2c2c2c; /* Darker background color */
+            border-radius: 10px;
+            box-shadow: 0px 5px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .vm-info {
+            border-top: 1px solid #333;
+            padding: 15px 0;
+        }
+
+        h2 {
+            margin-top: 0;
+            color: #8BC34A; /* VMware green color */
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        li {
+            margin-bottom: 10px;
+        }
+
+        button.disconnect {
+            padding: 5px 10px;
+            background-color: #ff6347;
+            color: #ffffff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button.disconnect:hover {
+            background-color: #c82333;
+        }
+
+        #progress-container {
+            display: none;
+            justify-content: center;
+            align-items: center;
+            margin-top: 10px;
+        }
+
+        #progress-text {
+            margin-right: 10px;
+        }
+
+        #searchForm.searching #progress-container {
+            display: flex;
+        }
+        .copy-btn {
+            padding: 5px 10px;
+            margin-left: 5px;
+            background-color: #4CAF50; /* Green color */
+            color: #ffffff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease-in-out;
+        }
+
+        .copy-btn:hover {
+            background-color: #45a049; /* Darker green for hover */
+        }
+
+        /* Generic Button Styles */
+        .vm-action-button {
+            border: none;
+            padding: 10px 15px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            text-align: center;
+        }
+
+        /* Power On (Green Play Button) */
+        .vm-action-button.power-on {
+            background-color: #4CAF50; /* Green */
+            color: white;
+        }
+
+        /* Reboot (Yellow Circular Arrow) */
+        .vm-action-button.reboot {
+            background-color: #FFC107; /* Yellow */
+            color: black;
+        }
+
+        /* Shutdown (Red Square) */
+        .vm-action-button.shutdown {
+            background-color: #F44336; /* Red */
+            color: white;
+        }
+
+    </style>
+</head>
+<body>
+<div id="title-container">
+    <h1 id="vmfinder-header" style="cursor: pointer;">VMFinder</h1>
+</div>
+<form id="searchForm">
+    <label for="searchInput">Search VM Name, IP or MAC:</label>
+    <input type="text" id="searchInput" name="query" required>
+    <button type="submit">Search</button>
+    <div id="progress-container">
+        <div id="progress-text">Searching</div>
+        <progress id="searchProgress" value="0" max="100"></progress>
+    </div>
+</form>
+<div id="searchResults"></div>
+<div id="passwordDialog" style="display: none; text-align: center;">
+    <div style="background-color: #1e1e1e; padding: 15px; border-radius: 5px; width: 250px; margin: 50px auto;">
+        <label for="passwordInput" style="color: #ffffff; font-size: 14px;">Enter Password:</label>
+        <input type="password" id="passwordInput" placeholder="●●●●●●●●" style="background-color: #2e2e2e; color: #ffffff; border: 1px solid #3e3e3e; border-radius: 4px; padding: 5px; margin-top: 5px; width: 100%;"/>
+        <button onclick="submitPassword()" style="background-color: #4caf50; border: none; border-radius: 5px; color: white; padding: 10px 20px; text-align: center; text-decoration: none; display: inline-block; font-size: 14px; margin: 5px 2px; cursor: pointer;">Submit</button>
+
+    </div>
+</div>
+
+</div>
+
+<script>
+    // Add a click event listener to the header for page refresh
+    const vmfinderHeader = document.getElementById('vmfinder-header');
+
+    vmfinderHeader.addEventListener('click', function () {
+        location.reload(); // Reload the page when the header is clicked
+    });
+
+    document.getElementById('searchForm').addEventListener('submit', function (event) {
+        event.preventDefault();
+        const searchQuery = document.getElementById('searchInput').value;
+        const searchForm = document.getElementById('searchForm');
+        const searchProgress = document.getElementById('searchProgress');
+        const progressContainer = document.getElementById('progress-container');
+        const progressText = document.getElementById('progress-text');
+
+        searchForm.classList.add('searching');
+        searchProgress.style.display = 'block';
+        progressText.style.display = 'block';
+        progressText.textContent = 'Searching';
+
+        searchProgress.value = 10;  // Initial progress
+
+        fetch(`/search?query=${searchQuery}`)
+            .then(response => response.json())
+            .then(data => {
+                searchForm.classList.remove('searching');
+                searchProgress.style.display = 'none';
+                progressText.style.display = 'none';
+                searchProgress.value = 0;  // Reset progress
+                displayResults(data);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                searchForm.classList.remove('searching');
+                searchProgress.style.display = 'none';
+                progressText.style.display = 'none';
+                searchProgress.value = 0;  // Reset progress in case of error
+            });
+    });
+
+    function displayResults(results) {
+        const searchResultsDiv = document.getElementById('searchResults');
+        searchResultsDiv.innerHTML = '';
+
+        if (results.length === 0) {
+            searchResultsDiv.innerHTML = '<p>No matching VMs found.</p>';
+            return;
+        }
+
+        for (const result of results) {
+            const primaryIP = result.ip_addresses[0] || 'N/A';
+            const additionalIPs = result.ip_addresses.slice(1) || [];
+
+            const vmInfoDiv = document.createElement('div');
+            vmInfoDiv.innerHTML = `
+            <h2>${result.vm_name}
+                <button class="vm-action-button power-on" onclick="performVMAction('${result.vm_name}', 'power_on')"><i class="fas fa-play"></i></button>
+                <button class="vm-action-button reboot" onclick="performVMAction('${result.vm_name}', 'reboot')"><i class="fas fa-redo"></i></button>
+                <button class="vm-action-button shutdown" onclick="performVMAction('${result.vm_name}', 'shutdown')"><i class="fas fa-stop-circle"></i></button>
+            </h2>
+            <p>
+                <strong>vCenter Name:</strong> ${result.vcenter_name}
+                <button onclick="copyToClipboard('${result.vcenter_name}')" class="copy-btn">Copy</button>
+            </p>
+            <p><strong>Primary IP Address:</strong> ${primaryIP}</p>
+            <div id="expand-${result.vm_name}" class="expand-button" onclick="toggleIPAddresses('expand-${result.vm_name}', 'ips-${result.vm_name}')"><i class="fas fa-arrow-down"></i></div>
+            <ul id="ips-${result.vm_name}" class="additional-ips" style="display: none;">
+                ${additionalIPs.map(ipAddress => `
+                    <li>
+                        <div class="ip-address-container">
+                            <span>
+                                <strong>IP Address:</strong> ${ipAddress}
+                            </span>
+                            <button onclick="copyToClipboard('${ipAddress}')" class="copy-btn">Copy</button>
+                        </div>
+                    </li>
+                `).join('')}
+            </ul>
+            <p><strong>Network Info:</strong></p>
+            <ul>
+                ${result.network_details.map(networkDetail => `
+                    <li>
+                        <strong>${networkDetail.adapter_name}:</strong> ${networkDetail.network_name ? 'Connected to ' + networkDetail.network_name : 'Not Connected'}
+                        <br>
+                        <strong>MAC Address:</strong> ${networkDetail.mac_address || 'N/A'}
+                        <button onclick="disconnectNetworkAdapter('${result.vm_name}', '${networkDetail.adapter_name}')">Disconnect</button>
+                    </li>
+                `).join('')}
+            </ul>
+            <hr>
+        `;
+            searchResultsDiv.appendChild(vmInfoDiv);
+        }
+    }
+
+    function toggleIPAddresses(expandId, ipsId) {
+        const ipsElement = document.getElementById(ipsId);
+        if (ipsElement.style.display === 'none') {
+            ipsElement.style.display = 'block';
+            document.getElementById(expandId).innerHTML = '<i class="fas fa-arrow-up"></i>';
+        } else {
+            ipsElement.style.display = 'none';
+            document.getElementById(expandId).innerHTML = '<i class="fas fa-arrow-down"></i>';
+        }
+    }
+
+
+    function copyToClipboard(text) {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        alert('Copied to clipboard!');
+    }
+
+    function disconnectNetworkAdapter(vmName, adapterName) {
+        const passwordInput = document.getElementById('passwordInput');
+
+        // Clear the password input when displaying the password dialog
+        passwordInput.value = '';
+
+        document.getElementById('passwordDialog').style.display = 'block'; // show the password input
+
+        window.submitPassword = function() {
+            const password = passwordInput.value;
+
+            if (password === "<your_password_here>") {
+                document.getElementById('passwordDialog').style.display = 'none'; // hide the password input
+                fetch(`/disconnect?vm_name=${encodeURIComponent(vmName)}&adapter_name=${encodeURIComponent(adapterName)}`, {
+                    method: 'POST'
+                })
+                    .then(response => response.json())
+                    .then(data => alert(data.message))
+                    .catch(error => console.error('Error:', error));
+            } else {
+                alert("You are not authorized for this action. Please refer to the CMTO team.");
+            }
+        };
+    }
+
+    function performVMAction(vmName, action) {
+        // Store the action and vmName globally so they can be used by the submitPassword function
+        window.vmAction = {
+            action: action,
+            vmName: vmName
+        };
+
+        // Display the password dialog
+        document.getElementById('passwordDialog').style.display = 'block';
+        document.getElementById('passwordInput').value = '';  // Clear the password input
+
+        window.submitPassword = function () {
+            const passwordInput = document.getElementById('passwordInput');
+            const password = passwordInput.value;
+
+            // Let's validate if the password input is not empty
+            if (!password) {
+                alert("Please enter the password.");
+                return;
+            }
+
+            // You have stored the vmName and action in the global window.vmAction object
+            const vmName = window.vmAction.vmName;
+            const action = window.vmAction.action;
+
+            // Validate the password on the client-side
+            if (password !== '<your_password_here>') {
+                alert("You are not authorized for this action. Please refer to your CMTO team.");
+                return;
+            }
+
+            fetch(`/control_vm`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({vm_name: vmName, action: action, password: password}) // send the password along
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        // If the server sends back a non-OK response, throw an error with its status text
+                        throw new Error(response.statusText);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    alert(data.message);
+                    document.getElementById('passwordDialog').style.display = 'none'; // Hide the password input dialog after successful execution.
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error occurred: ' + error.message);
+                });
+        };
+    }
+
+</script>
+</body>
+</html>
