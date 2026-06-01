@@ -172,14 +172,12 @@
     </div>
 </div>
 
-</div>
-
 <script>
     // Add a click event listener to the header for page refresh
     const vmfinderHeader = document.getElementById('vmfinder-header');
 
     vmfinderHeader.addEventListener('click', function () {
-        location.reload(); // Reload the page when the header is clicked
+        location.reload();
     });
 
     document.getElementById('searchForm').addEventListener('submit', function (event) {
@@ -194,16 +192,15 @@
         searchProgress.style.display = 'block';
         progressText.style.display = 'block';
         progressText.textContent = 'Searching';
+        searchProgress.value = 10;
 
-        searchProgress.value = 10;  // Initial progress
-
-        fetch(`/search?query=${searchQuery}`)
+        fetch(`/search?query=${encodeURIComponent(searchQuery)}`)
             .then(response => response.json())
             .then(data => {
                 searchForm.classList.remove('searching');
                 searchProgress.style.display = 'none';
                 progressText.style.display = 'none';
-                searchProgress.value = 0;  // Reset progress
+                searchProgress.value = 0;
                 displayResults(data);
             })
             .catch(error => {
@@ -211,7 +208,7 @@
                 searchForm.classList.remove('searching');
                 searchProgress.style.display = 'none';
                 progressText.style.display = 'none';
-                searchProgress.value = 0;  // Reset progress in case of error
+                searchProgress.value = 0;
             });
     });
 
@@ -231,23 +228,18 @@
             const vmInfoDiv = document.createElement('div');
             vmInfoDiv.innerHTML = `
             <h2>${result.vm_name}
-                <button class="vm-action-button power-on" onclick="performVMAction('${result.vm_name}', 'power_on')"><i class="fas fa-play"></i></button>
-                <button class="vm-action-button reboot" onclick="performVMAction('${result.vm_name}', 'reboot')"><i class="fas fa-redo"></i></button>
-                <button class="vm-action-button shutdown" onclick="performVMAction('${result.vm_name}', 'shutdown')"><i class="fas fa-stop-circle"></i></button>
+                <button class="vm-action-button power-on" onclick="openActionDialog('${result.vm_name}', 'power_on')"><i class="fas fa-play"></i></button>
+                <button class="vm-action-button reboot" onclick="openActionDialog('${result.vm_name}', 'reboot')"><i class="fas fa-redo"></i></button>
+                <button class="vm-action-button shutdown" onclick="openActionDialog('${result.vm_name}', 'shutdown')"><i class="fas fa-stop-circle"></i></button>
             </h2>
-            <p>
-                <strong>vCenter Name:</strong> ${result.vcenter_name}
-                <button onclick="copyToClipboard('${result.vcenter_name}')" class="copy-btn">Copy</button>
-            </p>
+            <p><strong>vCenter Name:</strong> ${result.vcenter_name} <button onclick="copyToClipboard('${result.vcenter_name}')" class="copy-btn">Copy</button></p>
             <p><strong>Primary IP Address:</strong> ${primaryIP}</p>
             <div id="expand-${result.vm_name}" class="expand-button" onclick="toggleIPAddresses('expand-${result.vm_name}', 'ips-${result.vm_name}')"><i class="fas fa-arrow-down"></i></div>
             <ul id="ips-${result.vm_name}" class="additional-ips" style="display: none;">
                 ${additionalIPs.map(ipAddress => `
                     <li>
                         <div class="ip-address-container">
-                            <span>
-                                <strong>IP Address:</strong> ${ipAddress}
-                            </span>
+                            <span><strong>IP Address:</strong> ${ipAddress}</span>
                             <button onclick="copyToClipboard('${ipAddress}')" class="copy-btn">Copy</button>
                         </div>
                     </li>
@@ -260,7 +252,7 @@
                         <strong>${networkDetail.adapter_name}:</strong> ${networkDetail.network_name ? 'Connected to ' + networkDetail.network_name : 'Not Connected'}
                         <br>
                         <strong>MAC Address:</strong> ${networkDetail.mac_address || 'N/A'}
-                        <button onclick="disconnectNetworkAdapter('${result.vm_name}', '${networkDetail.adapter_name}')">Disconnect</button>
+                        <button onclick="openDisconnectDialog('${result.vm_name}', '${networkDetail.adapter_name}')" class="disconnect">Disconnect</button>
                     </li>
                 `).join('')}
             </ul>
@@ -281,7 +273,6 @@
         }
     }
 
-
     function copyToClipboard(text) {
         const textarea = document.createElement('textarea');
         textarea.value = text;
@@ -292,85 +283,70 @@
         alert('Copied to clipboard!');
     }
 
-    function disconnectNetworkAdapter(vmName, adapterName) {
-        const passwordInput = document.getElementById('passwordInput');
+    // Unified Global Context state instead of overriding submit function signatures on the window object
+    let currentActionContext = null;
 
-        // Clear the password input when displaying the password dialog
-        passwordInput.value = '';
-
-        document.getElementById('passwordDialog').style.display = 'block'; // show the password input
-
-        window.submitPassword = function() {
-            const password = passwordInput.value;
-
-            if (password === "<your_password_here>") {
-                document.getElementById('passwordDialog').style.display = 'none'; // hide the password input
-                fetch(`/disconnect?vm_name=${encodeURIComponent(vmName)}&adapter_name=${encodeURIComponent(adapterName)}`, {
-                    method: 'POST'
-                })
-                    .then(response => response.json())
-                    .then(data => alert(data.message))
-                    .catch(error => console.error('Error:', error));
-            } else {
-                alert("You are not authorized for this action. Please refer to the CMTO team.");
-            }
-        };
+    function openDisconnectDialog(vmName, adapterName) {
+        currentActionContext = { type: 'disconnect', vmName, adapterName };
+        document.getElementById('passwordInput').value = '';
+        document.getElementById('passwordDialog').style.display = 'block';
     }
 
-    function performVMAction(vmName, action) {
-        // Store the action and vmName globally so they can be used by the submitPassword function
-        window.vmAction = {
-            action: action,
-            vmName: vmName
-        };
-
-        // Display the password dialog
+    function openActionDialog(vmName, action) {
+        currentActionContext = { type: 'control', vmName, action };
+        document.getElementById('passwordInput').value = '';
         document.getElementById('passwordDialog').style.display = 'block';
-        document.getElementById('passwordInput').value = '';  // Clear the password input
+    }
 
-        window.submitPassword = function () {
-            const passwordInput = document.getElementById('passwordInput');
-            const password = passwordInput.value;
+    function submitPassword() {
+        const password = document.getElementById('passwordInput').value;
+        if (!password) {
+            alert("Please enter a password.");
+            return;
+        }
 
-            // Let's validate if the password input is not empty
-            if (!password) {
-                alert("Please enter the password.");
-                return;
-            }
+        if (!currentActionContext) return;
 
-            // You have stored the vmName and action in the global window.vmAction object
-            const vmName = window.vmAction.vmName;
-            const action = window.vmAction.action;
-
-            // Validate the password on the client-side
-            if (password !== '<your_password_here>') {
-                alert("You are not authorized for this action. Please refer to your CMTO team.");
-                return;
-            }
-
-            fetch(`/control_vm`, {
+        if (currentActionContext.type === 'disconnect') {
+            fetch('/disconnect', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({vm_name: vmName, action: action, password: password}) // send the password along
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    vm_name: currentActionContext.vmName,
+                    adapter_name: currentActionContext.adapterName,
+                    password: password
+                })
             })
-                .then(response => {
-                    if (!response.ok) {
-                        // If the server sends back a non-OK response, throw an error with its status text
-                        throw new Error(response.statusText);
-                    }
-                    return response.json();
+                .then(res => {
+                    if(res.status === 401) throw new Error("Unauthorized! Please contact the CMTO team.");
+                    return res.json();
                 })
                 .then(data => {
                     alert(data.message);
-                    document.getElementById('passwordDialog').style.display = 'none'; // Hide the password input dialog after successful execution.
+                    document.getElementById('passwordDialog').style.display = 'none';
                 })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Error occurred: ' + error.message);
-                });
-        };
+                .catch(err => alert(err.message));
+
+        } else if (currentActionContext.type === 'control') {
+            fetch('/control_vm', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    vm_name: currentActionContext.vmName,
+                    action: currentActionContext.action,
+                    password: password
+                })
+            })
+                .then(res => {
+                    if(res.status === 401) throw new Error("Unauthorized! Please contact the CMTO team.");
+                    return res.json();
+                })
+                .then(data => {
+                    alert(data.message);
+                    document.getElementById('passwordDialog').style.display = 'none';
+                })
+                .catch(err => alert(err.message));
+        }
     }
 
 </script>
