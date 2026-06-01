@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VMFinder — Operational Control Panel</title>
+    <title>VMFinder</title>
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.ico') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -28,6 +28,8 @@
             --font-stack: 'Inter', system-ui, sans-serif;
         }
 
+        * { box-sizing: border-box; }
+
         body {
             font-family: var(--font-stack);
             background-color: var(--bg-main);
@@ -38,14 +40,18 @@
             background-image: radial-gradient(circle at 50% 0%, #1e2d24 0%, var(--bg-main) 70%);
         }
 
+        /* ---- Header ---- */
         #title-container {
             display: flex;
             justify-content: center;
-            padding: 40px 20px 20px;
+            align-items: center;
+            padding: 44px 32px 20px;
+            max-width: 900px;
+            margin: 0 auto;
         }
 
         #vmfinder-header {
-            font-size: 38px;
+            font-size: 42px;
             font-weight: 700;
             margin: 0;
             cursor: pointer;
@@ -54,10 +60,32 @@
             gap: 12px;
             transition: transform 0.2s ease;
         }
-
         #vmfinder-header:hover { transform: scale(1.01); }
         #vmfinder-header i { color: var(--accent-green); text-shadow: 0 0 20px rgba(124,179,66,0.4); }
 
+        #refresh-row { display: flex; justify-content: center; }
+
+        #refresh-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            background: rgba(124,179,66,0.08);
+            border: 1px solid rgba(124,179,66,0.3);
+            color: var(--accent-green);
+            border-radius: 8px;
+            padding: 7px 16px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: var(--font-stack);
+            margin-top: 10px;
+        }
+        #refresh-btn:hover { background: var(--accent-green); color: #fff; }
+        #refresh-btn.spinning i { animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ---- Search ---- */
         #searchForm {
             max-width: 600px;
             margin: 0 auto 35px;
@@ -73,8 +101,8 @@
             align-items: center;
             gap: 12px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            transition: border-color 0.2s ease;
         }
-
         .search-input-wrapper:focus-within { border-color: var(--accent-green); }
 
         #searchInput {
@@ -84,6 +112,7 @@
             background: transparent;
             color: var(--text-main);
             font-size: 16px;
+            font-family: var(--font-stack);
         }
 
         button[type="submit"] {
@@ -95,8 +124,8 @@
             font-weight: 600;
             cursor: pointer;
             transition: background 0.2s ease;
+            font-family: var(--font-stack);
         }
-
         button[type="submit"]:hover { background-color: var(--accent-green-hover); }
 
         #progress-container {
@@ -104,25 +133,30 @@
             align-items: center;
             justify-content: center;
             gap: 15px;
-            margin-top: 20px;
+            margin-top: 14px;
             background: rgba(20,27,34,0.6);
             padding: 12px;
             border-radius: 8px;
             border: 1px solid var(--border-color);
         }
-
         #searchForm.searching #progress-container { display: flex; }
 
         #searchProgress {
-            width: 150px;
-            height: 6px;
-            appearance: none;
+            width: 150px; height: 6px; appearance: none;
         }
-        #searchProgress::-webkit-progress-bar { background-color: var(--bg-input); border-radius: 4px;}
-        #searchProgress::-webkit-progress-value { background-color: var(--accent-green); border-radius: 4px;}
+        #searchProgress::-webkit-progress-bar  { background-color: var(--bg-input); border-radius: 4px; }
+        #searchProgress::-webkit-progress-value { background-color: var(--accent-green); border-radius: 4px; }
 
+        .search-hint {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 8px;
+            text-align: center;
+        }
+
+        /* ---- Results wrapper ---- */
         #searchResults {
-            margin: 0 auto 50px;
+            margin: 0 auto 20px;
             max-width: 850px;
             padding: 0 20px;
             display: flex;
@@ -130,6 +164,19 @@
             gap: 20px;
         }
 
+        /* ---- Empty / error states ---- */
+        .state-box {
+            text-align: center;
+            padding: 48px 24px;
+            color: var(--text-muted);
+        }
+        .state-box i { font-size: 36px; margin-bottom: 14px; display: block; }
+        .state-box p { margin: 4px 0; font-size: 15px; }
+        .state-box .state-sub { font-size: 13px; }
+        .state-box.error i  { color: #e57373; }
+        .state-box.empty i  { color: #37474f; }
+
+        /* ---- VM card ---- */
         .vm-info {
             background-color: var(--bg-card);
             border: 1px solid var(--border-color);
@@ -145,24 +192,47 @@
             border-bottom: 1px solid var(--border-color);
             padding-bottom: 14px;
             margin-bottom: 16px;
+            gap: 12px;
+            flex-wrap: wrap;
         }
 
-        h2 { margin: 0; font-size: 20px; font-weight: 600; }
+        .vm-name-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        h2 { margin: 0; font-size: 18px; font-weight: 600; }
+
+        /* Power state badge */
+        .power-badge {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 50px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+        .power-badge.poweredOn  { background: rgba(76,175,80,0.15);  color: #81c784; border: 1px solid rgba(76,175,80,0.3); }
+        .power-badge.poweredOff { background: rgba(244,67,54,0.15);  color: #e57373; border: 1px solid rgba(244,67,54,0.3); }
+        .power-badge.suspended  { background: rgba(255,179,0,0.15);  color: #ffb300; border: 1px solid rgba(255,179,0,0.3); }
+        .power-badge.unknown    { background: rgba(138,153,168,0.15); color: #8a99a8; border: 1px solid rgba(138,153,168,0.2); }
 
         .vm-action-button {
             border: none;
-            width: 36px;
-            height: 36px;
+            width: 36px; height: 36px;
             border-radius: 8px;
             cursor: pointer;
             margin-left: 6px;
             transition: all 0.2s ease;
+            font-size: 13px;
         }
-
         .vm-action-button.power-on { background: rgba(76,175,80,0.12); color: var(--btn-power); }
         .vm-action-button.power-on:hover { background: var(--btn-power); color: #fff; }
-        .vm-action-button.reboot { background: rgba(255,179,0,0.12); color: var(--btn-reboot); }
-        .vm-action-button.reboot:hover { background: var(--btn-reboot); color: #121212; }
+        .vm-action-button.reboot   { background: rgba(255,179,0,0.12); color: var(--btn-reboot); }
+        .vm-action-button.reboot:hover   { background: var(--btn-reboot); color: #121212; }
         .vm-action-button.shutdown { background: rgba(244,67,54,0.12); color: var(--btn-shutdown); }
         .vm-action-button.shutdown:hover { background: var(--btn-shutdown); color: #fff; }
 
@@ -178,8 +248,10 @@
             cursor: pointer;
             font-size: 11px;
             margin-left: 6px;
+            font-family: var(--font-stack);
+            transition: all 0.15s ease;
         }
-        .copy-btn.copied-success { background: var(--btn-copy-success)!important; color:#fff!important; }
+        .copy-btn.copied-success { background: var(--btn-copy-success) !important; color: #fff !important; }
 
         .primary-ip-row {
             display: flex;
@@ -190,6 +262,7 @@
             padding: 10px 14px;
             border-radius: 10px;
             border: 1px solid var(--border-color);
+            flex-wrap: wrap;
         }
 
         .ip-val { font-family: monospace; font-weight: 700; background: #0b0f12; padding: 2px 6px; border-radius: 4px; }
@@ -203,6 +276,7 @@
             font-size: 12px;
             cursor: pointer;
             margin-left: auto;
+            font-family: var(--font-stack);
         }
 
         .additional-ips-list {
@@ -228,9 +302,9 @@
             padding: 14px;
         }
 
-        .badge { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 50px; float: right; text-transform: uppercase;}
-        .badge.connected { background: rgba(76,175,80,0.15); color: #81c784; }
-        .badge.disconnected { background: rgba(244,67,54,0.15); color: #e57373; }
+        .badge { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 50px; float: right; text-transform: uppercase; }
+        .badge.connected    { background: rgba(76,175,80,0.15);  color: #81c784; }
+        .badge.disconnected { background: rgba(244,67,54,0.15);  color: #e57373; }
 
         .mac-row {
             font-size: 12px;
@@ -250,13 +324,40 @@
             padding: 2px 8px;
             cursor: pointer;
             font-size: 11px;
+            font-family: var(--font-stack);
+            transition: all 0.15s ease;
         }
-        button.disconnect:hover { background: var(--btn-disconnect); color: #fff; }
+        button.disconnect:hover { background: var(--btn-disconnect); color: #fff; border-color: var(--btn-disconnect); }
 
+        /* ---- Pagination ---- */
+        #pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 0 50px;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+        .page-btn {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            border-radius: 6px;
+            padding: 6px 14px;
+            cursor: pointer;
+            font-family: var(--font-stack);
+            font-size: 13px;
+            transition: all 0.15s ease;
+        }
+        .page-btn:hover:not(:disabled) { border-color: var(--accent-green); color: var(--accent-green); }
+        .page-btn:disabled { opacity: 0.35; cursor: default; }
+
+        /* ---- Password dialog ---- */
         #passwordDialog {
             display: none;
             position: fixed;
-            top:0; left:0; width:100%; height:100%;
+            top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(5,7,9,0.85);
             backdrop-filter: blur(4px);
             z-index: 1000;
@@ -264,14 +365,25 @@
 
         .dialog-content {
             background: var(--bg-card);
-            padding: 24px;
-            border-radius: 12px;
-            width: 280px;
-            margin: 15% auto;
+            padding: 28px 24px 24px;
+            border-radius: 14px;
+            width: 320px;
+            margin: 14% auto;
             border: 1px solid var(--border-color);
             text-align: center;
             box-shadow: 0 10px 40px rgba(0,0,0,0.5);
         }
+
+        .dialog-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+
+        /* FIX: shows what action is being confirmed */
+        .dialog-subtitle {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 14px;
+            min-height: 18px;
+        }
+        .dialog-subtitle strong { color: var(--text-main); }
 
         .dialog-content input {
             background: var(--bg-main);
@@ -279,16 +391,28 @@
             border: 1px solid var(--border-color);
             border-radius: 6px;
             padding: 8px;
-            width: calc(100% - 18px);
-            margin: 12px 0;
+            width: 100%;
+            margin: 4px 0 14px;
             text-align: center;
             outline: none;
+            font-family: var(--font-stack);
+            font-size: 15px;
         }
+        .dialog-content input:focus { border-color: var(--accent-green); }
 
         .dialog-actions { display: flex; gap: 8px; }
-        .dialog-btn { flex: 1; padding: 8px; border-radius: 6px; border: none; cursor: pointer; font-weight: 600; }
+        .dialog-btn { flex: 1; padding: 9px; border-radius: 6px; border: none; cursor: pointer; font-weight: 600; font-family: var(--font-stack); font-size: 14px; }
         .dialog-btn.confirm { background: var(--accent-green); color: #fff; }
-        .dialog-btn.cancel { background: #243140; color: #fff; }
+        .dialog-btn.confirm:hover { background: var(--accent-green-hover); }
+        .dialog-btn.cancel  { background: #243140; color: #fff; }
+        .dialog-btn.cancel:hover  { background: #2e3f52; }
+
+        .dialog-error {
+            font-size: 12px;
+            color: #e57373;
+            min-height: 16px;
+            margin-bottom: 8px;
+        }
     </style>
 </head>
 <body>
@@ -300,8 +424,14 @@
 <form id="searchForm">
     <div class="search-input-wrapper">
         <i class="fas fa-search" style="color: var(--text-muted)"></i>
-        <input type="text" id="searchInput" placeholder="Search VM Name, IP or MAC..." required autocomplete="off">
+        <input type="text" id="searchInput" placeholder="Search VM Name, IP or MAC..." autocomplete="off">
         <button type="submit">Search</button>
+    </div>
+    <div class="search-hint">Minimum 3 characters &mdash; searches name, IP, and MAC address</div>
+    <div id="refresh-row">
+        <button id="refresh-btn" type="button" onclick="openRefreshDialog()">
+            <i class="fas fa-sync-alt"></i> Refresh Cache
+        </button>
     </div>
     <div id="progress-container">
         <div id="progress-text"><i class="fas fa-circle-notch fa-spin"></i> Querying Assets...</div>
@@ -310,11 +440,16 @@
 </form>
 
 <div id="searchResults"></div>
+<div id="pagination"></div>
 
+<!-- Password / action confirmation dialog -->
 <div id="passwordDialog">
     <div class="dialog-content">
-        <label style="font-weight:600;"><i class="fas fa-shield-halved"></i> Admin Access Required</label>
+        <div class="dialog-title"><i class="fas fa-shield-halved"></i> Admin Access Required</div>
+        <!-- FIX: context text shows what is being actioned -->
+        <div class="dialog-subtitle" id="dialogSubtitle"></div>
         <input type="password" id="passwordInput" placeholder="••••••••">
+        <div class="dialog-error" id="dialogError"></div>
         <div class="dialog-actions">
             <button class="dialog-btn cancel" onclick="closePasswordDialog()">Cancel</button>
             <button class="dialog-btn confirm" onclick="submitPassword()">Confirm</button>
@@ -323,76 +458,24 @@
 </div>
 
 <script>
-    document.getElementById('vmfinder-header').addEventListener('click', () => location.reload());
+    // ---------------------------------------------------------------------------
+    // Helpers
+    // ---------------------------------------------------------------------------
 
-    document.getElementById('searchForm').addEventListener('submit', function (event) {
-        event.preventDefault();
-        const query = document.getElementById('searchInput').value;
-        this.classList.add('searching');
-
-        fetch(`/search?query=${encodeURIComponent(query)}`)
-            .then(res => res.json())
-            .then(data => {
-                this.classList.remove('searching');
-                displayResults(data);
-            })
-            .catch(() => this.classList.remove('searching'));
-    });
-
-    function displayResults(results) {
-        const wrapper = document.getElementById('searchResults');
-        wrapper.innerHTML = results.length === 0 ? '<div style="text-align:center; color:var(--text-muted);">No records found.</div>' : '';
-
-        // Safe conversion of string formatting to prevent characters splitting inside attribute spaces
-        for (const res of results) {
-            const primaryIP = res.ip_addresses[0] || 'N/A';
-            const extraIPs = res.ip_addresses.slice(1);
-            const safeVmId = res.vm_name.replace(/[^a-zA-Z0-9-_]/g, '_');
-
-            const card = document.createElement('div');
-            card.className = 'vm-info';
-            card.innerHTML = `
-                <div class="vm-card-header">
-                    <h2><i class="fas fa-server" style="color:var(--text-muted)"></i> ${res.vm_name}</h2>
-                    <div>
-                        <button class="vm-action-button power-on" onclick="openActionDialog('${res.vm_name}', 'power_on')"><i class="fas fa-play"></i></button>
-                        <button class="vm-action-button reboot" onclick="openActionDialog('${res.vm_name}', 'reboot')"><i class="fas fa-redo"></i></button>
-                        <button class="vm-action-button shutdown" onclick="openActionDialog('${res.vm_name}', 'shutdown')"><i class="fas fa-power-off"></i></button>
-                    </div>
-                </div>
-                <div class="meta-data-line"><strong>vCenter:</strong> ${res.vcenter_name} <button onclick="copyText('${res.vcenter_name}', this)" class="copy-btn">Copy</button></div>
-                <div class="primary-ip-row">
-                    <span><strong>IP:</strong> <span class="ip-val">${primaryIP}</span></span>
-                    ${primaryIP !== 'N/A' ? `<button onclick="copyText('${primaryIP}', this)" class="copy-btn">Copy</button>` : ''}
-                    ${extraIPs.length ? `<button id="exp-${safeVmId}" class="toggle-ips-btn" onclick="toggleIPs('${safeVmId}', ${extraIPs.length})">Show More (${extraIPs.length})</button>` : ''}
-                </div>
-                <ul id="ips-${safeVmId}" class="additional-ips-list" style="display:none;">
-                    ${extraIPs.map(ip => `<li style="margin:6px 0;"><span class="ip-val">${ip}</span> <button onclick="copyText('${ip}', this)" class="copy-btn">Copy</button></li>`).join('')}
-                </ul>
-                <div class="network-details-list">
-                    ${res.network_details.map(net => `
-                        <div class="network-adapter-card">
-                            <span class="badge ${net.network_name ? 'connected' : 'disconnected'}">${net.network_name ? 'Connected' : 'Disconnected'}</span>
-                            <div style="font-weight:600; font-size:14px;">${net.adapter_name}</div>
-                            <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">${net.network_name || 'No Switch Bound'}</div>
-                            <div class="mac-row">
-                                <span style="font-family:monospace;">${net.mac_address || 'N/A'}</span>
-                                ${net.network_name ? `<button onclick="openDisconnectDialog('${res.vm_name}', '${net.adapter_name}')" class="disconnect">Isolate</button>` : ''}
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>`;
-            wrapper.appendChild(card);
-        }
+    // FIX: XSS prevention — always escape user-supplied strings before injecting
+    // into the DOM as HTML.
+    function esc(str) {
+        if (str == null) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#x27;');
     }
 
-    function toggleIPs(safeId, count) {
-        const el = document.getElementById(`ips-${safeId}`);
-        const btn = document.getElementById(`exp-${safeId}`);
-        const active = el.style.display === 'none';
-        el.style.display = active ? 'block' : 'none';
-        btn.textContent = active ? 'Hide' : `Show More (${count})`;
-    }
+    // FIX: safe text node setter — avoids innerHTML entirely for dynamic values.
+    function setText(el, str) { el.textContent = str; }
 
     function copyText(text, btn) {
         navigator.clipboard.writeText(text).then(() => {
@@ -402,25 +485,446 @@
         });
     }
 
+    function toggleIPs(safeId, count) {
+        const el  = document.getElementById(`ips-${safeId}`);
+        const btn = document.getElementById(`exp-${safeId}`);
+        const show = el.style.display === 'none';
+        el.style.display = show ? 'block' : 'none';
+        btn.textContent  = show ? 'Hide' : `Show More (${count})`;
+    }
+
+    function powerStateLabel(state) {
+        const map = {
+            'poweredOn':  'Powered On',
+            'poweredOff': 'Powered Off',
+            'suspended':  'Suspended',
+        };
+        return map[state] || 'Unknown';
+    }
+
+    // ---------------------------------------------------------------------------
+    // Header click reloads page
+    // ---------------------------------------------------------------------------
+    document.getElementById('vmfinder-header').addEventListener('click', () => location.reload());
+
+    // ---------------------------------------------------------------------------
+    // Pagination state
+    // ---------------------------------------------------------------------------
+    let currentQuery   = '';
+    let currentPage    = 1;
+    const PER_PAGE     = 25;
+
+    // ---------------------------------------------------------------------------
+    // Search — submit button and Enter key only, no live search
+    // ---------------------------------------------------------------------------
+
+    document.getElementById('searchForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        const q = document.getElementById('searchInput').value.trim();
+        if (q.length < 3) {
+            showError('Please enter at least 3 characters to search.');
+            return;
+        }
+        currentQuery = q;
+        currentPage  = 1;
+        runSearch();
+    });
+
+    function runSearch() {
+        const form = document.getElementById('searchForm');
+        form.classList.add('searching');
+        document.getElementById('searchResults').innerHTML = '';
+        document.getElementById('pagination').innerHTML = '';
+
+        fetch(`/search?query=${encodeURIComponent(currentQuery)}&page=${currentPage}&per_page=${PER_PAGE}`)
+            .then(res => {
+                if (!res.ok) return res.json().then(d => { throw new Error(d.error || `Server error ${res.status}`); });
+                return res.json();
+            })
+            .then(data => {
+                form.classList.remove('searching');
+                displayResults(data.results, data.total, data.page, data.pages);
+            })
+            .catch(err => {
+                form.classList.remove('searching');
+                // FIX: visible error state instead of silent spinner removal
+                showError(err.message || 'Search failed. Check your connection or server logs.');
+            });
+    }
+
+    // ---------------------------------------------------------------------------
+    // Result rendering
+    // ---------------------------------------------------------------------------
+    function showError(msg) {
+        const wrapper = document.getElementById('searchResults');
+        wrapper.innerHTML = '';
+        const box = document.createElement('div');
+        box.className = 'state-box error';
+        const icon = document.createElement('i');
+        icon.className = 'fas fa-triangle-exclamation';
+        const p = document.createElement('p');
+        setText(p, msg);
+        box.appendChild(icon);
+        box.appendChild(p);
+        wrapper.appendChild(box);
+    }
+
+    function displayResults(results, total, page, pages) {
+        const wrapper = document.getElementById('searchResults');
+        wrapper.innerHTML = '';
+
+        if (results.length === 0) {
+            const box = document.createElement('div');
+            box.className = 'state-box empty';
+            box.innerHTML = '<i class="fas fa-ghost"></i>';
+            const p  = document.createElement('p');  setText(p,  'No records found.');
+            const p2 = document.createElement('p');  p2.className = 'state-sub';
+            setText(p2, `Try a different name, IP, or MAC address.`);
+            box.appendChild(p); box.appendChild(p2);
+            wrapper.appendChild(box);
+            return;
+        }
+
+        for (const res of results) {
+            wrapper.appendChild(buildVMCard(res));
+        }
+
+        buildPagination(page, pages, total);
+    }
+
+    // FIX: entire card built with createElement + textContent — no innerHTML for
+    // any dynamic value, so XSS via VM names / IPs / MACs / vCenter names is
+    // completely eliminated.
+    function buildVMCard(res) {
+        const safeId   = res.vm_name.replace(/[^a-zA-Z0-9-_]/g, '_');
+        const primaryIP = res.ip_addresses[0] || null;
+        const extraIPs  = res.ip_addresses.slice(1);
+
+        // --- outer card ---
+        const card = document.createElement('div');
+        card.className = 'vm-info';
+
+        // --- header row ---
+        const header = document.createElement('div');
+        header.className = 'vm-card-header';
+
+        const nameRow = document.createElement('div');
+        nameRow.className = 'vm-name-row';
+
+        const title = document.createElement('h2');
+        const serverIcon = document.createElement('i');
+        serverIcon.className = 'fas fa-server';
+        serverIcon.style.color = 'var(--text-muted)';
+        serverIcon.style.marginRight = '8px';
+        title.appendChild(serverIcon);
+        title.appendChild(document.createTextNode(res.vm_name));
+
+        // Power state badge
+        const rawState  = (res.power_state || 'unknown').replace('vim.VirtualMachine.PowerState.', '');
+        const stateCls  = ['poweredOn','poweredOff','suspended'].includes(rawState) ? rawState : 'unknown';
+        const pwBadge   = document.createElement('span');
+        pwBadge.className = `power-badge ${stateCls}`;
+        // small dot + label
+        pwBadge.textContent = powerStateLabel(rawState);
+
+        nameRow.appendChild(title);
+        nameRow.appendChild(pwBadge);
+
+        // Action buttons
+        const btnGroup = document.createElement('div');
+        [
+            { cls: 'power-on',  icon: 'fa-play',      action: 'power_on', tip: 'Power On'  },
+            { cls: 'reboot',    icon: 'fa-redo',       action: 'reboot',   tip: 'Reboot'   },
+            { cls: 'shutdown',  icon: 'fa-power-off',  action: 'shutdown', tip: 'Shutdown' },
+        ].forEach(({ cls, icon, action, tip }) => {
+            const btn = document.createElement('button');
+            btn.className = `vm-action-button ${cls}`;
+            btn.title = tip;
+            btn.innerHTML = `<i class="fas ${icon}"></i>`;
+            btn.addEventListener('click', () => openActionDialog(res.vm_name, action, tip));
+            btnGroup.appendChild(btn);
+        });
+
+        header.appendChild(nameRow);
+        header.appendChild(btnGroup);
+        card.appendChild(header);
+
+        // --- vCenter line ---
+        const vcLine = document.createElement('div');
+        vcLine.className = 'meta-data-line';
+        const vcStrong = document.createElement('strong');
+        setText(vcStrong, 'vCenter: ');
+        const vcText = document.createTextNode(res.vcenter_name);
+        const vcCopy = makeCopyBtn(res.vcenter_name);
+        vcLine.appendChild(vcStrong);
+        vcLine.appendChild(vcText);
+        vcLine.appendChild(vcCopy);
+        card.appendChild(vcLine);
+
+        // --- Primary IP row ---
+        const ipRow = document.createElement('div');
+        ipRow.className = 'primary-ip-row';
+
+        const ipLabel = document.createElement('span');
+        const ipStrong = document.createElement('strong');
+        setText(ipStrong, 'IP: ');
+        const ipSpan = document.createElement('span');
+        ipSpan.className = 'ip-val';
+        setText(ipSpan, primaryIP || 'N/A');
+        ipLabel.appendChild(ipStrong);
+        ipLabel.appendChild(ipSpan);
+        ipRow.appendChild(ipLabel);
+
+        if (primaryIP) ipRow.appendChild(makeCopyBtn(primaryIP));
+
+        if (extraIPs.length) {
+            const toggleBtn = document.createElement('button');
+            toggleBtn.id = `exp-${safeId}`;
+            toggleBtn.className = 'toggle-ips-btn';
+            toggleBtn.textContent = `Show More (${extraIPs.length})`;
+            toggleBtn.addEventListener('click', () => toggleIPs(safeId, extraIPs.length));
+            ipRow.appendChild(toggleBtn);
+        }
+        card.appendChild(ipRow);
+
+        // --- Extra IPs list ---
+        if (extraIPs.length) {
+            const ul = document.createElement('ul');
+            ul.id = `ips-${safeId}`;
+            ul.className = 'additional-ips-list';
+            ul.style.display = 'none';
+            extraIPs.forEach(ip => {
+                const li = document.createElement('li');
+                li.style.margin = '6px 0';
+                const span = document.createElement('span');
+                span.className = 'ip-val';
+                setText(span, ip);
+                li.appendChild(span);
+                li.appendChild(makeCopyBtn(ip));
+                ul.appendChild(li);
+            });
+            card.appendChild(ul);
+        }
+
+        // --- Network adapter cards ---
+        const netList = document.createElement('div');
+        netList.className = 'network-details-list';
+
+        res.network_details.forEach(net => {
+            const adapterCard = document.createElement('div');
+            adapterCard.className = 'network-adapter-card';
+
+            const badge = document.createElement('span');
+            badge.className = `badge ${net.network_name ? 'connected' : 'disconnected'}`;
+            setText(badge, net.network_name ? 'Connected' : 'Disconnected');
+
+            const adapterTitle = document.createElement('div');
+            adapterTitle.style.cssText = 'font-weight:600;font-size:14px;margin-top:4px;';
+            setText(adapterTitle, net.adapter_name);
+
+            const networkLabel = document.createElement('div');
+            networkLabel.style.cssText = 'font-size:12px;color:var(--text-muted);margin-top:4px;';
+            setText(networkLabel, net.network_name || 'No Switch Bound');
+
+            const macRow = document.createElement('div');
+            macRow.className = 'mac-row';
+
+            const macSpan = document.createElement('span');
+            macSpan.style.fontFamily = 'monospace';
+            setText(macSpan, net.mac_address || 'N/A');
+            macRow.appendChild(macSpan);
+
+            if (net.network_name) {
+                const isoBtn = document.createElement('button');
+                isoBtn.className = 'disconnect';
+                isoBtn.textContent = 'Isolate';
+                isoBtn.addEventListener('click', () => openDisconnectDialog(res.vm_name, net.adapter_name));
+                macRow.appendChild(isoBtn);
+            }
+
+            adapterCard.appendChild(badge);
+            adapterCard.appendChild(adapterTitle);
+            adapterCard.appendChild(networkLabel);
+            adapterCard.appendChild(macRow);
+            netList.appendChild(adapterCard);
+        });
+
+        card.appendChild(netList);
+        return card;
+    }
+
+    function makeCopyBtn(value) {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', () => copyText(value, btn));
+        return btn;
+    }
+
+    // ---------------------------------------------------------------------------
+    // Pagination
+    // ---------------------------------------------------------------------------
+    function buildPagination(page, pages, total) {
+        const container = document.getElementById('pagination');
+        container.innerHTML = '';
+        if (pages <= 1) return;
+
+        const prev = document.createElement('button');
+        prev.className = 'page-btn';
+        prev.textContent = '← Prev';
+        prev.disabled = page <= 1;
+        prev.addEventListener('click', () => { currentPage = page - 1; runSearch(); window.scrollTo(0,0); });
+
+        const info = document.createElement('span');
+        setText(info, `Page ${page} of ${pages}  (${total} results)`);
+
+        const next = document.createElement('button');
+        next.className = 'page-btn';
+        next.textContent = 'Next →';
+        next.disabled = page >= pages;
+        next.addEventListener('click', () => { currentPage = page + 1; runSearch(); window.scrollTo(0,0); });
+
+        container.appendChild(prev);
+        container.appendChild(info);
+        container.appendChild(next);
+    }
+
+    // ---------------------------------------------------------------------------
+    // Password dialog
+    // ---------------------------------------------------------------------------
     let currentActionContext = null;
     const dialog = document.getElementById('passwordDialog');
-    const pin = document.getElementById('passwordInput');
+    const pinInput = document.getElementById('passwordInput');
 
-    function openDisconnectDialog(vmName, adapterName) { currentActionContext = { type: 'disconnect', vmName, adapterName }; pin.value = ''; dialog.style.display = 'block'; pin.focus(); }
-    function openActionDialog(vmName, action) { currentActionContext = { type: 'control', vmName, action }; pin.value = ''; dialog.style.display = 'block'; pin.focus(); }
+    const ACTION_LABELS = { power_on: 'Power On', reboot: 'Reboot', shutdown: 'Shutdown' };
+
+    function openDisconnectDialog(vmName, adapterName) {
+        currentActionContext = { type: 'disconnect', vmName, adapterName };
+        // FIX: context subtitle so user knows exactly what they're confirming
+        const sub = document.getElementById('dialogSubtitle');
+        sub.innerHTML = `Isolate adapter <strong>${esc(adapterName)}</strong> on <strong>${esc(vmName)}</strong>`;
+        _openDialog();
+    }
+
+    function openActionDialog(vmName, action, label) {
+        currentActionContext = { type: 'control', vmName, action };
+        const sub = document.getElementById('dialogSubtitle');
+        const actionLabel = label || ACTION_LABELS[action] || action;
+        sub.innerHTML = `${esc(actionLabel)} <strong>${esc(vmName)}</strong>`;
+        _openDialog();
+    }
+
+    function _openDialog() {
+        pinInput.value = '';
+        document.getElementById('dialogError').textContent = '';
+        dialog.style.display = 'block';
+        pinInput.focus();
+    }
+
     function closePasswordDialog() { dialog.style.display = 'none'; }
 
-    function submitPassword() {
-        if (!pin.value) return;
-        const url = currentActionContext.type === 'disconnect' ? '/disconnect' : '/control_vm';
-        const payload = currentActionContext.type === 'disconnect'
-            ? { vm_name: currentActionContext.vmName, adapter_name: currentActionContext.adapterName, password: pin.value }
-            : { vm_name: currentActionContext.vmName, action: currentActionContext.action, password: pin.value };
+    // Enter key confirms
+    pinInput.addEventListener('keydown', e => { if (e.key === 'Enter') submitPassword(); });
 
-        fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-            .then(res => { if(res.status === 401) throw new Error("Unauthorized Access Key."); return res.json(); })
-            .then(data => { alert(data.message); dialog.style.display = 'none'; })
-            .catch(err => alert(err.message));
+    // Click outside dialog content closes it
+    dialog.addEventListener('click', e => { if (e.target === dialog) closePasswordDialog(); });
+
+    function submitPassword() {
+        const errEl = document.getElementById('dialogError');
+        errEl.textContent = '';
+        if (!pinInput.value) { errEl.textContent = 'Password is required.'; return; }
+
+        const url     = currentActionContext.type === 'disconnect' ? '/disconnect' : '/control_vm';
+        const payload = currentActionContext.type === 'disconnect'
+            ? { vm_name: currentActionContext.vmName, adapter_name: currentActionContext.adapterName, password: pinInput.value }
+            : { vm_name: currentActionContext.vmName, action: currentActionContext.action, password: pinInput.value };
+
+        fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+            .then(res => {
+                if (res.status === 401) throw new Error('Incorrect password.');
+                if (res.status === 429) throw new Error('Too many requests. Please wait.');
+                return res.json();
+            })
+            .then(data => {
+                dialog.style.display = 'none';
+                // Refresh the current search results so power state / adapter badge updates
+                if (currentQuery) runSearch();
+                showToast(data.message);
+            })
+            .catch(err => { errEl.textContent = err.message; });
+    }
+
+    // ---------------------------------------------------------------------------
+    // Refresh cache dialog (reuses password dialog flow)
+    // ---------------------------------------------------------------------------
+    function openRefreshDialog() {
+        currentActionContext = { type: 'refresh' };
+        const sub = document.getElementById('dialogSubtitle');
+        sub.innerHTML = 'Rebuild <strong>VM inventory cache</strong> from all vCenters';
+        _openDialog();
+    }
+
+    // Patch submitPassword to also handle refresh
+    const _origSubmit = submitPassword;
+    submitPassword = function () {
+        if (currentActionContext && currentActionContext.type === 'refresh') {
+            const errEl = document.getElementById('dialogError');
+            errEl.textContent = '';
+            if (!pinInput.value) { errEl.textContent = 'Password is required.'; return; }
+
+            const refreshBtn = document.getElementById('refresh-btn');
+            refreshBtn.classList.add('spinning');
+
+            fetch('/refresh_cache', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: pinInput.value })
+            })
+                .then(res => {
+                    if (res.status === 401) throw new Error('Incorrect password.');
+                    if (res.status === 429) throw new Error('Too many requests. Please wait.');
+                    return res.json();
+                })
+                .then(data => {
+                    dialog.style.display = 'none';
+                    refreshBtn.classList.remove('spinning');
+                    showToast(data.message);
+                    if (currentQuery) runSearch();
+                })
+                .catch(err => {
+                    refreshBtn.classList.remove('spinning');
+                    errEl.textContent = err.message;
+                });
+        } else {
+            _origSubmit();
+        }
+    };
+
+    // ---------------------------------------------------------------------------
+    // Toast notification (replaces alert())
+    // ---------------------------------------------------------------------------
+    function showToast(msg) {
+        let toast = document.getElementById('vmf-toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'vmf-toast';
+            toast.style.cssText = `
+            position:fixed; bottom:28px; left:50%; transform:translateX(-50%);
+            background:#1e2d24; border:1px solid var(--accent-green);
+            color:var(--text-main); padding:12px 24px; border-radius:10px;
+            font-size:14px; z-index:2000; box-shadow:0 4px 20px rgba(0,0,0,0.5);
+            transition:opacity 0.3s ease; pointer-events:none;
+        `;
+            document.body.appendChild(toast);
+        }
+        toast.textContent = msg;
+        toast.style.opacity = '1';
+        clearTimeout(toast._timer);
+        toast._timer = setTimeout(() => { toast.style.opacity = '0'; }, 3000);
     }
 </script>
 </body>
