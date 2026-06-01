@@ -42,7 +42,7 @@ pip install -r requirements.txt
 
 > Update the Flask app paths app = Flask(__name__, template_folder=r'PATH_TO_TEMPLATES_FOLDER', static_folder=r'PATH_TO_STATIC_FOLDER')
 > **Note:** Adjust the `vcenter_servers` list inside `VMFinder.py` with your real vCenter IPs/FQDNs and credentials.  
-> Also, replace `<your_password_here>` in the code with your real authorization password in both .py and index files.
+> Also, replace `<your_password_here>` in the code with your real authorization password.
 
 ---
 
@@ -54,7 +54,7 @@ Start the Flask app:
 python VMFinder.py
 ```
 
-By default, it runs on `http://0.0.0.0:80/`.
+By default, it runs on `http://0.0.0.0:5000/`.
 
 Then open your browser and access the **VMFinder** web interface.
 
