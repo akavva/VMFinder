@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VMFinder — Center Operational Dashboard</title>
+    <title>VMFinder — Operational Control Panel</title>
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.ico') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,17 +17,15 @@
             --bg-input: #1a232d;
             --accent-green: #7cb342;
             --accent-green-hover: #689f38;
-            --btn-copy: #2e7d32;
-            --btn-copy-hover: #1b5e20;
+            --btn-copy-success: #2e7d32;
             --btn-power: #4caf50;
             --btn-reboot: #ffb300;
             --btn-shutdown: #f44336;
             --btn-disconnect: #e53935;
-            --btn-disconnect-hover: #b71c1c;
             --text-main: #f5f7fa;
             --text-muted: #8a99a8;
             --border-color: #243140;
-            --font-stack: 'Inter', system-ui, -apple-system, sans-serif;
+            --font-stack: 'Inter', system-ui, sans-serif;
         }
 
         body {
@@ -40,43 +38,30 @@
             background-image: radial-gradient(circle at 50% 0%, #1e2d24 0%, var(--bg-main) 70%);
         }
 
-        /* Header Branding Layout */
         #title-container {
             display: flex;
             justify-content: center;
-            align-items: center;
-            padding: 40px 20px 20px 20px;
+            padding: 40px 20px 20px;
         }
 
         #vmfinder-header {
-            font-size: 42px;
+            font-size: 38px;
             font-weight: 700;
-            letter-spacing: -1px;
             margin: 0;
-            color: var(--text-main);
             cursor: pointer;
-            user-select: none;
             display: flex;
             align-items: center;
             gap: 12px;
             transition: transform 0.2s ease;
         }
 
-        #vmfinder-header:hover {
-            transform: scale(1.02);
-        }
+        #vmfinder-header:hover { transform: scale(1.01); }
+        #vmfinder-header i { color: var(--accent-green); text-shadow: 0 0 20px rgba(124,179,66,0.4); }
 
-        #vmfinder-header i {
-            color: var(--accent-green);
-            text-shadow: 0 0 20px rgba(124, 179, 66, 0.4);
-        }
-
-        /* Search Console Wrapper */
         #searchForm {
             max-width: 600px;
-            margin: 0 auto 35px auto;
+            margin: 0 auto 35px;
             padding: 0 20px;
-            position: relative;
         }
 
         .search-input-wrapper {
@@ -87,19 +72,10 @@
             padding: 6px 6px 6px 16px;
             align-items: center;
             gap: 12px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-            transition: border-color 0.25s ease, box-shadow 0.25s ease;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
         }
 
-        .search-input-wrapper:focus-within {
-            border-color: var(--accent-green);
-            box-shadow: 0 8px 32px rgba(124, 179, 66, 0.15);
-        }
-
-        .search-input-wrapper i.search-field-icon {
-            color: var(--text-muted);
-            font-size: 18px;
-        }
+        .search-input-wrapper:focus-within { border-color: var(--accent-green); }
 
         #searchInput {
             flex: 1;
@@ -107,100 +83,51 @@
             outline: none;
             background: transparent;
             color: var(--text-main);
-            font-family: var(--font-stack);
             font-size: 16px;
-            font-weight: 500;
-            padding: 8px 0;
-        }
-
-        #searchInput::placeholder {
-            color: var(--text-muted);
         }
 
         button[type="submit"] {
             padding: 10px 24px;
             background-color: var(--accent-green);
-            color: #ffffff;
+            color: #fff;
             border: none;
             border-radius: 8px;
-            font-family: var(--font-stack);
             font-weight: 600;
-            font-size: 15px;
             cursor: pointer;
-            transition: background-color 0.2s ease, transform 0.1s ease;
-            display: flex;
-            align-items: center;
-            gap: 8px;
+            transition: background 0.2s ease;
         }
 
-        button[type="submit"]:hover {
-            background-color: var(--accent-green-hover);
-        }
+        button[type="submit"]:hover { background-color: var(--accent-green-hover); }
 
-        button[type="submit"]:active {
-            transform: scale(0.98);
-        }
-
-        /* Real-Time Processing Indicators */
         #progress-container {
             display: none;
             align-items: center;
             justify-content: center;
             gap: 15px;
             margin-top: 20px;
-            background: rgba(20, 27, 34, 0.6);
+            background: rgba(20,27,34,0.6);
             padding: 12px;
             border-radius: 8px;
             border: 1px solid var(--border-color);
         }
 
-        #searchForm.searching #progress-container {
-            display: flex;
-        }
-
-        #progress-text {
-            font-size: 14px;
-            font-weight: 500;
-            color: var(--text-muted);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
+        #searchForm.searching #progress-container { display: flex; }
 
         #searchProgress {
             width: 150px;
             height: 6px;
-            border-radius: 4px;
-            overflow: hidden;
             appearance: none;
         }
+        #searchProgress::-webkit-progress-bar { background-color: var(--bg-input); border-radius: 4px;}
+        #searchProgress::-webkit-progress-value { background-color: var(--accent-green); border-radius: 4px;}
 
-        #searchProgress::-webkit-progress-bar {
-            background-color: var(--bg-input);
-        }
-
-        #searchProgress::-webkit-progress-value {
-            background-color: var(--accent-green);
-        }
-
-        /* Primary Content Infrastructure Grid */
         #searchResults {
-            margin: 0 auto 50px auto;
+            margin: 0 auto 50px;
             max-width: 850px;
-            padding: 10px;
+            padding: 0 20px;
             display: flex;
             flex-direction: column;
             gap: 20px;
-        }
-
-        .no-records {
-            text-align: center;
-            padding: 40px;
-            background-color: var(--bg-card);
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
-            color: var(--text-muted);
-            font-weight: 500;
         }
 
         .vm-info {
@@ -209,39 +136,18 @@
             border-radius: 14px;
             padding: 24px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.25);
-            transition: transform 0.2s ease, border-color 0.2s ease;
         }
 
-        .vm-info:hover {
-            border-color: rgba(124, 179, 66, 0.3);
-        }
-
-        /* Top Bar Title Card Headers */
         .vm-card-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             border-bottom: 1px solid var(--border-color);
-            padding-bottom: 16px;
-            margin-bottom: 18px;
+            padding-bottom: 14px;
+            margin-bottom: 16px;
         }
 
-        h2 {
-            margin: 0;
-            font-size: 22px;
-            font-weight: 600;
-            color: var(--text-main);
-            letter-spacing: -0.3px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .action-button-group {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
+        h2 { margin: 0; font-size: 20px; font-weight: 600; }
 
         .vm-action-button {
             border: none;
@@ -249,369 +155,140 @@
             height: 36px;
             border-radius: 8px;
             cursor: pointer;
-            font-size: 14px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s ease, transform 0.1s ease;
+            margin-left: 6px;
+            transition: all 0.2s ease;
         }
 
-        .vm-action-button:active {
-            transform: scale(0.92);
-        }
+        .vm-action-button.power-on { background: rgba(76,175,80,0.12); color: var(--btn-power); }
+        .vm-action-button.power-on:hover { background: var(--btn-power); color: #fff; }
+        .vm-action-button.reboot { background: rgba(255,179,0,0.12); color: var(--btn-reboot); }
+        .vm-action-button.reboot:hover { background: var(--btn-reboot); color: #121212; }
+        .vm-action-button.shutdown { background: rgba(244,67,54,0.12); color: var(--btn-shutdown); }
+        .vm-action-button.shutdown:hover { background: var(--btn-shutdown); color: #fff; }
 
-        .vm-action-button.power-on {
-            background-color: rgba(76, 175, 80, 0.15);
-            color: var(--btn-power);
-            border: 1px solid rgba(76, 175, 80, 0.3);
-        }
-        .vm-action-button.power-on:hover {
-            background-color: var(--btn-power);
-            color: #ffffff;
-        }
+        .meta-data-line { font-size: 14px; margin: 8px 0; color: var(--text-muted); }
+        .meta-data-line strong { color: var(--text-main); }
 
-        .vm-action-button.reboot {
-            background-color: rgba(255, 179, 0, 0.15);
-            color: var(--btn-reboot);
-            border: 1px solid rgba(255, 179, 0, 0.3);
-        }
-        .vm-action-button.reboot:hover {
-            background-color: var(--btn-reboot);
-            color: #121212;
-        }
-
-        .vm-action-button.shutdown {
-            background-color: rgba(244, 67, 54, 0.15);
-            color: var(--btn-shutdown);
-            border: 1px solid rgba(244, 67, 54, 0.3);
-        }
-        .vm-action-button.shutdown:hover {
-            background-color: var(--btn-shutdown);
-            color: #ffffff;
-        }
-
-        /* Asset Information Meta Grid Rows */
-        .meta-data-line {
-            font-size: 14px;
-            color: var(--text-muted);
-            margin: 8px 0;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .meta-data-line strong {
-            color: var(--text-main);
-            font-weight: 500;
-        }
-
-        /* Standardized Action Button Layout elements */
         .copy-btn {
-            padding: 4px 10px;
-            background-color: #202b36;
+            padding: 3px 8px;
+            background: #202b36;
             color: #a0aec0;
             border: 1px solid var(--border-color);
             border-radius: 6px;
             cursor: pointer;
-            font-family: var(--font-stack);
-            font-size: 12px;
-            font-weight: 600;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            transition: all 0.2s ease;
+            font-size: 11px;
+            margin-left: 6px;
         }
-
-        .copy-btn:hover {
-            background-color: var(--btn-copy-hover);
-            color: #fff;
-            border-color: var(--btn-copy);
-        }
-
-        .copy-btn.copied-success {
-            background-color: var(--btn-copy) !important;
-            color: #ffffff !important;
-            border-color: var(--btn-copy) !important;
-        }
+        .copy-btn.copied-success { background: var(--btn-copy-success)!important; color:#fff!important; }
 
         .primary-ip-row {
             display: flex;
             align-items: center;
             gap: 12px;
             margin: 14px 0;
-            background: rgba(26, 35, 45, 0.4);
+            background: rgba(26,35,45,0.4);
             padding: 10px 14px;
             border-radius: 10px;
             border: 1px solid var(--border-color);
         }
 
-        .primary-ip-row p {
-            margin: 0;
-            font-size: 15px;
-        }
+        .ip-val { font-family: monospace; font-weight: 700; background: #0b0f12; padding: 2px 6px; border-radius: 4px; }
 
-        .primary-ip-row .ip-val {
-            font-family: 'Courier New', Courier, monospace;
-            font-weight: 700;
-            color: #ffffff;
-            background: #0b0f12;
-            padding: 2px 8px;
-            border-radius: 4px;
-        }
-
-        /* Secondary Matrix Toggles */
         .toggle-ips-btn {
-            background-color: #243140;
+            background: #243140;
             color: var(--text-main);
             border: 1px solid #334457;
-            padding: 5px 12px;
+            padding: 4px 10px;
             border-radius: 6px;
-            cursor: pointer;
-            font-family: var(--font-stack);
             font-size: 12px;
-            font-weight: 600;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
+            cursor: pointer;
             margin-left: auto;
-            transition: all 0.2s ease;
         }
 
-        .toggle-ips-btn:hover {
-            background-color: #2d3d50;
-        }
-
-        /* Dynamic Expandable Interface Lists */
         .additional-ips-list {
             margin: -6px 0 16px 24px;
             padding: 4px 0 4px 16px;
             border-left: 2px dashed var(--accent-green);
             list-style: none;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .ip-address-container {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 13.5px;
-        }
-
-        .ip-address-container .sub-ip-val {
-            font-family: 'Courier New', Courier, monospace;
-            color: #cfd8dc;
-        }
-
-        /* Isolated Device Boundary Grids */
-        .network-section-title {
-            margin: 18px 0 10px 0;
-            font-size: 14px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: var(--text-muted);
         }
 
         .network-details-list {
-            margin: 0;
+            margin: 10px 0 0;
             padding: 0;
             list-style: none;
             display: grid;
-            grid-template-columns: 1fr;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 12px;
         }
 
-        @media (min-width: 768px) {
-            .network-details-list {
-                grid-template-columns: 1fr 1fr;
-            }
-        }
-
         .network-adapter-card {
-            background-color: #1a232d;
+            background: #1a232d;
             border: 1px solid var(--border-color);
             border-radius: 10px;
             padding: 14px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            gap: 10px;
         }
 
-        .adapter-meta-top {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: 8px;
-        }
-
-        .adapter-label {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--text-main);
-        }
-
-        .badge {
-            font-size: 11px;
-            font-weight: 700;
-            padding: 3px 8px;
-            border-radius: 50px;
-            text-transform: uppercase;
-        }
-
-        .badge.connected {
-            background-color: rgba(76, 175, 80, 0.15);
-            color: #81c784;
-            border: 1px solid rgba(76, 175, 80, 0.3);
-        }
-
-        .badge.disconnected {
-            background-color: rgba(244, 67, 54, 0.15);
-            color: #e57373;
-            border: 1px solid rgba(244, 67, 54, 0.3);
-        }
-
-        .vswitch-text {
-            font-size: 13px;
-            color: var(--text-muted);
-            word-break: break-all;
-        }
+        .badge { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 50px; float: right; text-transform: uppercase;}
+        .badge.connected { background: rgba(76,175,80,0.15); color: #81c784; }
+        .badge.disconnected { background: rgba(244,67,54,0.15); color: #e57373; }
 
         .mac-row {
             font-size: 12px;
-            color: var(--text-muted);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-top: auto;
+            margin-top: 10px;
             padding-top: 8px;
             border-top: 1px solid #243140;
-        }
-
-        .mac-val {
-            font-family: 'Courier New', Courier, monospace;
-            color: #b0bec5;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         button.disconnect {
-            padding: 4px 10px;
-            background-color: rgba(229, 57, 53, 0.12);
+            background: rgba(229,57,53,0.12);
             color: #ef5350;
-            border: 1px solid rgba(229, 57, 53, 0.3);
+            border: 1px solid rgba(229,57,53,0.3);
             border-radius: 6px;
+            padding: 2px 8px;
             cursor: pointer;
-            font-family: var(--font-stack);
             font-size: 11px;
-            font-weight: 600;
-            transition: all 0.2s ease;
         }
+        button.disconnect:hover { background: var(--btn-disconnect); color: #fff; }
 
-        button.disconnect:hover {
-            background-color: var(--btn-disconnect);
-            color: #ffffff;
-            border-color: var(--btn-disconnect);
-        }
-
-        /* Enterprise Modal Authorization Panels */
         #passwordDialog {
             display: none;
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(5, 7, 9, 0.85);
-            backdrop-filter: blur(6px);
+            top:0; left:0; width:100%; height:100%;
+            background: rgba(5,7,9,0.85);
+            backdrop-filter: blur(4px);
             z-index: 1000;
-            animation: fadeIn 0.2s ease-out;
         }
 
         .dialog-content {
-            background-color: var(--bg-card);
-            padding: 28px;
-            border-radius: 16px;
-            width: 320px;
-            margin: 12% auto;
+            background: var(--bg-card);
+            padding: 24px;
+            border-radius: 12px;
+            width: 280px;
+            margin: 15% auto;
             border: 1px solid var(--border-color);
-            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
             text-align: center;
-            animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .dialog-icon {
-            font-size: 32px;
-            color: var(--btn-reboot);
-            margin-bottom: 14px;
-        }
-
-        .dialog-content label {
-            color: var(--text-main);
-            font-size: 15px;
-            font-weight: 600;
-            display: block;
-            margin-bottom: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
         }
 
         .dialog-content input {
-            background-color: var(--bg-main);
-            color: var(--text-main);
+            background: var(--bg-main);
+            color: #fff;
             border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 10px 12px;
-            width: calc(100% - 26px);
-            font-size: 16px;
-            outline: none;
+            border-radius: 6px;
+            padding: 8px;
+            width: calc(100% - 18px);
+            margin: 12px 0;
             text-align: center;
-            font-family: var(--font-stack);
-            transition: border-color 0.2s ease;
+            outline: none;
         }
 
-        .dialog-content input:focus {
-            border-color: var(--accent-green);
-        }
-
-        .dialog-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 18px;
-        }
-
-        .dialog-btn {
-            flex: 1;
-            padding: 10px;
-            border-radius: 8px;
-            font-family: var(--font-stack);
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            border: none;
-            transition: all 0.2s ease;
-        }
-
-        .dialog-btn.confirm {
-            background-color: var(--accent-green);
-            color: #ffffff;
-        }
-        .dialog-btn.confirm:hover {
-            background-color: var(--accent-green-hover);
-        }
-
-        .dialog-btn.cancel {
-            background-color: #243140;
-            color: var(--text-main);
-        }
-        .dialog-btn.cancel:hover {
-            background-color: #2d3d50;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; } to { opacity: 1; }
-        }
-        @keyframes slideUp {
-            from { transform: translateY(15px); } to { transform: translateY(0); }
-        }
+        .dialog-actions { display: flex; gap: 8px; }
+        .dialog-btn { flex: 1; padding: 8px; border-radius: 6px; border: none; cursor: pointer; font-weight: 600; }
+        .dialog-btn.confirm { background: var(--accent-green); color: #fff; }
+        .dialog-btn.cancel { background: #243140; color: #fff; }
     </style>
 </head>
 <body>
@@ -622,14 +299,13 @@
 
 <form id="searchForm">
     <div class="search-input-wrapper">
-        <i class="fas fa-search search-field-icon"></i>
-        <input type="text" id="searchInput" name="query" placeholder="Search VM Name, IP or MAC address..." required autocomplete="off">
+        <i class="fas fa-search" style="color: var(--text-muted)"></i>
+        <input type="text" id="searchInput" placeholder="Search VM Name, IP or MAC..." required autocomplete="off">
         <button type="submit">Search</button>
     </div>
-
     <div id="progress-container">
-        <div id="progress-text"><i class="fas fa-circle-notch fa-spin"></i> Querying Asset Matrix...</div>
-        <progress id="searchProgress" value="0" max="100"></progress>
+        <div id="progress-text"><i class="fas fa-circle-notch fa-spin"></i> Querying Assets...</div>
+        <progress id="searchProgress" value="10" max="100"></progress>
     </div>
 </form>
 
@@ -637,9 +313,8 @@
 
 <div id="passwordDialog">
     <div class="dialog-content">
-        <div class="dialog-icon"><i class="fas fa-shield-halved"></i></div>
-        <label for="passwordInput">Administrative Access Required</label>
-        <input type="password" id="passwordInput" placeholder="••••••••" />
+        <label style="font-weight:600;"><i class="fas fa-shield-halved"></i> Admin Access Required</label>
+        <input type="password" id="passwordInput" placeholder="••••••••">
         <div class="dialog-actions">
             <button class="dialog-btn cancel" onclick="closePasswordDialog()">Cancel</button>
             <button class="dialog-btn confirm" onclick="submitPassword()">Confirm</button>
@@ -648,236 +323,104 @@
 </div>
 
 <script>
-    const vmfinderHeader = document.getElementById('vmfinder-header');
-
-    vmfinderHeader.addEventListener('click', function () {
-        location.reload();
-    });
+    document.getElementById('vmfinder-header').addEventListener('click', () => location.reload());
 
     document.getElementById('searchForm').addEventListener('submit', function (event) {
         event.preventDefault();
-        const searchQuery = document.getElementById('searchInput').value;
-        const searchForm = document.getElementById('searchForm');
-        const searchProgress = document.getElementById('searchProgress');
-        const progressText = document.getElementById('progress-text');
+        const query = document.getElementById('searchInput').value;
+        this.classList.add('searching');
 
-        searchForm.classList.add('searching');
-        searchProgress.style.display = 'block';
-        progressText.style.display = 'flex';
-        searchProgress.value = 25;
-
-        fetch(`/search?query=${encodeURIComponent(searchQuery)}`)
-            .then(response => response.json())
+        fetch(`/search?query=${encodeURIComponent(query)}`)
+            .then(res => res.json())
             .then(data => {
-                searchForm.classList.remove('searching');
-                searchProgress.value = 0;
+                this.classList.remove('searching');
                 displayResults(data);
             })
-            .catch(error => {
-                console.error('Error:', error);
-                searchForm.classList.remove('searching');
-                searchProgress.value = 0;
-            });
+            .catch(() => this.classList.remove('searching'));
     });
 
     function displayResults(results) {
-        const searchResultsDiv = document.getElementById('searchResults');
-        searchResultsDiv.innerHTML = '';
+        const wrapper = document.getElementById('searchResults');
+        wrapper.innerHTML = results.length === 0 ? '<div style="text-align:center; color:var(--text-muted);">No records found.</div>' : '';
 
-        if (results.length === 0) {
-            searchResultsDiv.innerHTML = `<div class="no-records"><i class="fas fa-box-open" style="font-size:24px; margin-bottom:10px; display:block;"></i> No matching infrastructure assets discovered.</div>`;
-            return;
-        }
+        // Safe conversion of string formatting to prevent characters splitting inside attribute spaces
+        for (const res of results) {
+            const primaryIP = res.ip_addresses[0] || 'N/A';
+            const extraIPs = res.ip_addresses.slice(1);
+            const safeVmId = res.vm_name.replace(/[^a-zA-Z0-9-_]/g, '_');
 
-        for (const result of results) {
-            const primaryIP = result.ip_addresses[0] || 'N/A';
-            const additionalIPs = result.ip_addresses.slice(1) || [];
-            const hasMoreIPs = additionalIPs.length > 0;
-
-            const vmInfoDiv = document.createElement('div');
-            vmInfoDiv.className = 'vm-info';
-            vmInfoDiv.innerHTML = `
-            <div class="vm-card-header">
-                <h2><i class="fas fa-server" style="color:var(--text-muted); font-size:18px;"></i> ${result.vm_name}</h2>
-                <div class="action-button-group">
-                    <button title="Power On" class="vm-action-button power-on" onclick="openActionDialog('${result.vm_name}', 'power_on')"><i class="fas fa-play"></i></button>
-                    <button title="Reboot Guest OS" class="vm-action-button reboot" onclick="openActionDialog('${result.vm_name}', 'reboot')"><i class="fas fa-arrow-rotate-left"></i></button>
-                    <button title="Graceful Shutdown" class="vm-action-button shutdown" onclick="openActionDialog('${result.vm_name}', 'shutdown')"><i class="fas fa-power-off"></i></button>
+            const card = document.createElement('div');
+            card.className = 'vm-info';
+            card.innerHTML = `
+                <div class="vm-card-header">
+                    <h2><i class="fas fa-server" style="color:var(--text-muted)"></i> ${res.vm_name}</h2>
+                    <div>
+                        <button class="vm-action-button power-on" onclick="openActionDialog('${res.vm_name}', 'power_on')"><i class="fas fa-play"></i></button>
+                        <button class="vm-action-button reboot" onclick="openActionDialog('${res.vm_name}', 'reboot')"><i class="fas fa-redo"></i></button>
+                        <button class="vm-action-button shutdown" onclick="openActionDialog('${res.vm_name}', 'shutdown')"><i class="fas fa-power-off"></i></button>
+                    </div>
                 </div>
-            </div>
-            
-            <div class="meta-data-line">
-                <strong>vCenter Node:</strong> 
-                <span>${result.vcenter_name}</span> 
-                <button onclick="copyToClipboard('${result.vcenter_name}', this)" class="copy-btn"><i class="far fa-copy"></i> Copy</button>
-            </div>
-            
-            <div class="primary-ip-row">
-                <p><strong>Primary IP Address:</strong> <span class="ip-val">${primaryIP}</span></p>
-                ${primaryIP !== 'N/A' ? `<button onclick="copyToClipboard('${primaryIP}', this)" class="copy-btn"><i class="far fa-copy"></i> Copy</button>` : ''}
-                ${hasMoreIPs ? `
-                    <button id="expand-${result.vm_name}" 
-                            class="toggle-ips-btn" 
-                            data-count="${additionalIPs.length}" 
-                            onclick="toggleIPAddresses('expand-${result.vm_name}', 'ips-${result.vm_name}')">
-                        <i class="fas fa-chevron-down"></i> Secondary Interfaces (${additionalIPs.length})
-                    </button>` : ''}
-            </div>
-
-            <ul id="ips-${result.vm_name}" class="additional-ips-list" style="display: none;">
-                ${additionalIPs.map(ipAddress => `
-                    <li>
-                        <div class="ip-address-container">
-                            <i class="fas fa-caret-right" style="color:var(--text-muted)"></i>
-                            <span class="sub-ip-val">${ipAddress}</span>
-                            <button onclick="copyToClipboard('${ipAddress}', this)" class="copy-btn"><i class="far fa-copy"></i> Copy</button>
-                        </div>
-                    </li>
-                `).join('')}
-            </ul>
-            
-            <div class="network-section-title">Hardware Adapters Architecture</div>
-            <ul class="network-details-list">
-                ${result.network_details.map(networkDetail => {
-                const isConnected = networkDetail.network_name ? true : false;
-                return `
-                    <li class="network-adapter-card">
-                        <div class="adapter-meta-top">
-                            <div>
-                                <span class="adapter-label">${networkDetail.adapter_name}</span>
-                                <div class="vswitch-text" style="margin-top: 4px;">
-                                    <i class="fas fa-network-wired" style="font-size:11px; color:var(--text-muted);"></i> 
-                                    ${isConnected ? networkDetail.network_name : 'No virtual switch bound'}
-                                </div>
+                <div class="meta-data-line"><strong>vCenter:</strong> ${res.vcenter_name} <button onclick="copyText('${res.vcenter_name}', this)" class="copy-btn">Copy</button></div>
+                <div class="primary-ip-row">
+                    <span><strong>IP:</strong> <span class="ip-val">${primaryIP}</span></span>
+                    ${primaryIP !== 'N/A' ? `<button onclick="copyText('${primaryIP}', this)" class="copy-btn">Copy</button>` : ''}
+                    ${extraIPs.length ? `<button id="exp-${safeVmId}" class="toggle-ips-btn" onclick="toggleIPs('${safeVmId}', ${extraIPs.length})">Show More (${extraIPs.length})</button>` : ''}
+                </div>
+                <ul id="ips-${safeVmId}" class="additional-ips-list" style="display:none;">
+                    ${extraIPs.map(ip => `<li style="margin:6px 0;"><span class="ip-val">${ip}</span> <button onclick="copyText('${ip}', this)" class="copy-btn">Copy</button></li>`).join('')}
+                </ul>
+                <div class="network-details-list">
+                    ${res.network_details.map(net => `
+                        <div class="network-adapter-card">
+                            <span class="badge ${net.network_name ? 'connected' : 'disconnected'}">${net.network_name ? 'Connected' : 'Disconnected'}</span>
+                            <div style="font-weight:600; font-size:14px;">${net.adapter_name}</div>
+                            <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">${net.network_name || 'No Switch Bound'}</div>
+                            <div class="mac-row">
+                                <span style="font-family:monospace;">${net.mac_address || 'N/A'}</span>
+                                ${net.network_name ? `<button onclick="openDisconnectDialog('${res.vm_name}', '${net.adapter_name}')" class="disconnect">Isolate</button>` : ''}
                             </div>
-                            <span class="badge ${isConnected ? 'connected' : 'disconnected'}">
-                                ${isConnected ? 'Connected' : 'Disconnected'}
-                            </span>
                         </div>
-                        <div class="mac-row">
-                            <div>MAC: <span class="mac-val">${networkDetail.mac_address || 'N/A'}</span></div>
-                            ${isConnected ? `<button onclick="openDisconnectDialog('${result.vm_name}', '${networkDetail.adapter_name}')" class="disconnect"><i class="fas fa-link-slash"></i> Isolate</button>` : ''}
-                        </div>
-                    </li>
-                    `;
-            }).join('')}
-            </ul>
-        `;
-            searchResultsDiv.appendChild(vmInfoDiv);
+                    `).join('')}
+                </div>`;
+            wrapper.appendChild(card);
         }
     }
 
-    function toggleIPAddresses(expandId, ipsId) {
-        const ipsElement = document.getElementById(ipsId);
-        const btnElement = document.getElementById(expandId);
-        const extraCount = btnElement.getAttribute('data-count');
-
-        if (ipsElement.style.display === 'none') {
-            ipsElement.style.display = 'flex';
-            ipsElement.style.flexDirection = 'column';
-            btnElement.innerHTML = '<i class="fas fa-chevron-up"></i> Hide Interfaces';
-            btnElement.style.backgroundColor = 'rgba(124, 179, 66, 0.15)';
-            btnElement.style.borderColor = 'var(--accent-green)';
-            btnElement.style.color = 'var(--accent-green)';
-        } else {
-            ipsElement.style.display = 'none';
-            btnElement.innerHTML = `<i class="fas fa-chevron-down"></i> Secondary Interfaces (${extraCount})`;
-            btnElement.style.backgroundColor = '#243140';
-            btnElement.style.borderColor = '#334457';
-            btnElement.style.color = 'var(--text-main)';
-        }
+    function toggleIPs(safeId, count) {
+        const el = document.getElementById(`ips-${safeId}`);
+        const btn = document.getElementById(`exp-${safeId}`);
+        const active = el.style.display === 'none';
+        el.style.display = active ? 'block' : 'none';
+        btn.textContent = active ? 'Hide' : `Show More (${count})`;
     }
 
-    // High performance inline DOM checking to modify icons dynamically rather than global alert calls
-    function copyToClipboard(text, buttonElement) {
-        const textarea = document.createElement('textarea');
-        textarea.value = text;
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
-
-        if (buttonElement) {
-            const originalHTML = buttonElement.innerHTML;
-            buttonElement.innerHTML = '<i class="fas fa-check"></i> Copied';
-            buttonElement.classList.add('copied-success');
-            setTimeout(() => {
-                buttonElement.innerHTML = originalHTML;
-                buttonElement.classList.remove('copied-success');
-            }, 1200);
-        }
+    function copyText(text, btn) {
+        navigator.clipboard.writeText(text).then(() => {
+            btn.classList.add('copied-success');
+            btn.textContent = 'Copied!';
+            setTimeout(() => { btn.classList.remove('copied-success'); btn.textContent = 'Copy'; }, 1000);
+        });
     }
 
     let currentActionContext = null;
+    const dialog = document.getElementById('passwordDialog');
+    const pin = document.getElementById('passwordInput');
 
-    function closePasswordDialog() {
-        document.getElementById('passwordDialog').style.display = 'none';
-        currentActionContext = null;
-    }
-
-    function openDisconnectDialog(vmName, adapterName) {
-        currentActionContext = { type: 'disconnect', vmName, adapterName };
-        document.getElementById('passwordInput').value = '';
-        document.getElementById('passwordDialog').style.display = 'block';
-        document.getElementById('passwordInput').focus();
-    }
-
-    function openActionDialog(vmName, action) {
-        currentActionContext = { type: 'control', vmName, action };
-        document.getElementById('passwordInput').value = '';
-        document.getElementById('passwordDialog').style.display = 'block';
-        document.getElementById('passwordInput').focus();
-    }
+    function openDisconnectDialog(vmName, adapterName) { currentActionContext = { type: 'disconnect', vmName, adapterName }; pin.value = ''; dialog.style.display = 'block'; pin.focus(); }
+    function openActionDialog(vmName, action) { currentActionContext = { type: 'control', vmName, action }; pin.value = ''; dialog.style.display = 'block'; pin.focus(); }
+    function closePasswordDialog() { dialog.style.display = 'none'; }
 
     function submitPassword() {
-        const password = document.getElementById('passwordInput').value;
-        if (!password) {
-            alert("Please enter a password.");
-            return;
-        }
+        if (!pin.value) return;
+        const url = currentActionContext.type === 'disconnect' ? '/disconnect' : '/control_vm';
+        const payload = currentActionContext.type === 'disconnect'
+            ? { vm_name: currentActionContext.vmName, adapter_name: currentActionContext.adapterName, password: pin.value }
+            : { vm_name: currentActionContext.vmName, action: currentActionContext.action, password: pin.value };
 
-        if (!currentActionContext) return;
-
-        if (currentActionContext.type === 'disconnect') {
-            fetch('/disconnect', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    vm_name: currentActionContext.vmName,
-                    adapter_name: currentActionContext.adapterName,
-                    password: password
-                })
-            })
-                .then(res => {
-                    if(res.status === 401) throw new Error("Unauthorized! Please contact the CMTO team.");
-                    return res.json();
-                })
-                .then(data => {
-                    alert(data.message);
-                    document.getElementById('passwordDialog').style.display = 'none';
-                })
-                .catch(err => alert(err.message));
-
-        } else if (currentActionContext.type === 'control') {
-            fetch('/control_vm', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    vm_name: currentActionContext.vmName,
-                    action: currentActionContext.action,
-                    password: password
-                })
-            })
-                .then(res => {
-                    if(res.status === 401) throw new Error("Unauthorized! Please contact the CMTO team.");
-                    return res.json();
-                })
-                .then(data => {
-                    alert(data.message);
-                    document.getElementById('passwordDialog').style.display = 'none';
-                })
-                .catch(err => alert(err.message));
-        }
+        fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+            .then(res => { if(res.status === 401) throw new Error("Unauthorized Access Key."); return res.json(); })
+            .then(data => { alert(data.message); dialog.style.display = 'none'; })
+            .catch(err => alert(err.message));
     }
 </script>
 </body>
