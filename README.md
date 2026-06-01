@@ -1,87 +1,114 @@
-# VMFinder
+# 🌐 VMFinder
 
-**VMFinder** is a lightweight Flask-based tool that allows administrators to search, locate, and manage virtual machines across multiple vCenters.  
-You can search VMs by **full or partial** IP address, MAC address, or VM name, and **securely disconnect** network adapters to quickly isolate compromised systems during security incidents.  
+VMFinder is a high-performance, lightweight Flask web application designed for system administrators and security incident responders. It provides a unified dashboard to instantly locate, inspect, and manage virtual machines across multiple VMware vCenter instances simultaneously.
 
-A simple web interface is provided to make searches and operations fast and intuitive.
+During active security incidents, VMFinder enables authorized personnel to instantly isolate compromised infrastructure by safely disconnecting virtual network adapters (NICs) or managing power states straight from the browser UI.
 
 ---
 
 ## ✨ Features
-- 🔍 **Search VMs** by:
-  - Full or partial **IP address**
-  - Full or partial **MAC address**
-  - Full or partial **VM name**
-- 🌐 **Connect to multiple vCenters** simultaneously
-- 🛡️ **Disconnect NICs** (network adapters) from VMs for quick isolation during attacks
-- ⚡ **Control VMs**:
-  - Power On
-  - Reboot
-  - Shutdown
-- 🖥️ **User-friendly Web UI** (HTML + JavaScript + Flask API)
-- 🔒 **Password-protected critical actions** (disconnecting NICs or controlling VMs)
+
+* **⚡ Ultra-Fast Search Matrix:** Instantly search through thousands of assets by:
+  * Full or partial **VM Name**
+  * Full or partial **IP Address**
+  * Full or partial **MAC Address**
+* **🌐 Multi-vCenter Aggregation:** Query multiple vCenter environments simultaneously into a single search grid.
+* **🚀 Server-Side API Property Collection:** Utilizes highly optimized VMware `PropertyCollector` batching to index hundreds of VMs in seconds instead of sequential polling.
+* **🛡️ Rapid Incident Isolation:** Disconnect virtual network adapters instantly to quarantine infected machines from the rest of the corporate network.
+* **🔌 Power State Control:** Issue execution signals (`Power On`, `Reboot`, `Shutdown`) directly from the search cards.
+* **🔒 Obfuscated Access Safeguards:** Critical operational infrastructure endpoints require explicit administrative authentication verified securely on the backend server.
 
 ---
 
-## 📋 Requirements
-- Python 3.x
-- `pyVmomi` (VMware vSphere SDK for Python)
-- `Flask`
-- `flask_cors`
-- Access credentials for the vCenters
+## 📋 Prerequisites & Requirements
+
+* **Python 3.8+**
+* **VMware vSphere Environment** (vCenter access credentials)
+* **Python Libraries:**
+  * `pyvmomi` (Official VMware vSphere SDK for Python)
+  * `Flask`
+  * `flask-cors`
 
 ---
 
-## 🛠️ Installation
+## 🛠️ Installation & Setup
 
+### 1. Clone the Repository
 ```bash
 git clone https://github.com/akavva/VMFinder.git
-cd vmfinder
-pip install -r requirements.txt
+cd VMFinder
+
 ```
 
-> Update the Flask app paths app = Flask(__name__, template_folder=r'PATH_TO_TEMPLATES_FOLDER', static_folder=r'PATH_TO_STATIC_FOLDER')
-> **Note:** Adjust the `vcenter_servers` list inside `VMFinder.py` with your real vCenter IPs/FQDNs and credentials.  
-> Also, replace `<your_password_here>` in the code with your real authorization password.
+### 2. Configure Virtual Environment & Dependencies
+
+```bash
+# Create a virtual environment
+python -m venv .venv
+
+# Activate the virtual environment (Windows)
+.venv\Scripts\activate
+
+# Install required dependencies
+pip install -r requirements.txt
+
+```
+
+### 3. Application Configuration
+
+Open `VMFinder.py` and configure your cluster target matrix inside the `vcenter_servers` block:
+
+```python
+vcenter_servers = [
+    {
+        'name': 'Production-vCenter-01', # Your actual VCENTER name or mnemonic
+        'hostname': '192.168.1.100', # Your vCenter IP or FQDN
+        'username': 'VCENTER_account', # Administartor or other account with adequate priliveges
+        'password': 'VCENTER_PASSWORD',
+        'port': 443
+    }
+]
+
+```
+
+> 💡 **Security Best Practice:** Ensure the vCenter service account is configured with the *Principle of Least Privilege* (only allow VM interaction power states and device modification roles).
 
 ---
 
 ## 🚀 Usage
 
-Start the Flask app:
-
+1. **Launch the Flask Web App Server:**
 ```bash
 python VMFinder.py
+
 ```
 
-By default, it runs on `http://0.0.0.0:5000/`.
 
-Then open your browser and access the **VMFinder** web interface.
-
----
-
-## 🔍 API Endpoints
-
-- `GET /search?query=<text>`  
-  Search for VMs using partial/full IP, MAC, or VM name.
-
-- `POST /disconnect?vm_name=<name>&adapter_name=<adapter>`  
-  Disconnect the specified network adapter from a VM (password-protected).
-
-- `POST /control_vm`  
-  Control the VM (power on, reboot, shutdown) (password-protected).
+2. **Access the Application Interface:**
+Open your preferred browser and navigate to:
+👉 **`http://localhost:5000`** *(or your host's external network IP address on Port 5000)*
 
 ---
 
-## ⚠️ Notes
-- **CORS** is enabled for all routes.
-- **SSL verification** is disabled (`ssl._create_unverified_context()` is used).
-- Ensure your firewall allows connections to port 80 if you access the server externally.
-- Use **strong passwords** when setting up access control.
-- Review security best practices if deploying in production environments.
+## 🔍 API Architecture Reference
 
-## Contributing
+| Method | Endpoint | Description | Auth Required |
+| --- | --- | --- | --- |
+| **`GET`** | `/` | Renders the primary search dashboard interface. | No |
+| **`GET`** | `/search?query=<text>` | Queries the memory cache map array for matching string patterns. | No |
+| **`POST`** | `/disconnect` | Payload: `{ "vm_name": "x", "adapter_name": "y", "password": "z" }` — Disconnects network device cards. | **Yes** |
+| **`POST`** | `/control_vm` | Payload: `{ "vm_name": "x", "action": "power_on|reboot|shutdown", "password": "z" }` | **Yes** |
+| **`POST`** | `/validate_password` | Evaluates client authentication sequences using constant-time evaluation mechanisms. | **Yes** |
 
-- Contributions are welcome!  
-- Please open an issue or a pull request to improve detection accuracy, code quality, or security.  
+---
 
+## ⚠️ Notes & Security Considerations
+
+* **SSL Handshake Overrides:** By design, the script uses `ssl._create_unverified_context()` to handle self-signed internal corporate vCenter certificates without crashing execution chains.
+* **Network Isolation Deployment:** If hosting this tool to a wide infrastructure management team, it is highly recommended to run the app behind a secure reverse proxy (like Nginx) wrapping the session inside **HTTPS** to encrypt client authentication payloads across the wire.
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! If you want to build out the UI layout badges, or improve detection parameters, please open an Issue or submit a Pull Request
