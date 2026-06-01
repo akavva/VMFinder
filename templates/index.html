@@ -1,179 +1,653 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>VMFinder</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VMFinder — Center Operational Dashboard</title>
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.ico') }}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <style>
+        :root {
+            --bg-main: #0b0f12;
+            --bg-card: #141b22;
+            --bg-input: #1a232d;
+            --accent-green: #7cb342;
+            --accent-green-hover: #689f38;
+            --btn-copy: #2e7d32;
+            --btn-copy-hover: #1b5e20;
+            --btn-power: #4caf50;
+            --btn-reboot: #ffb300;
+            --btn-shutdown: #f44336;
+            --btn-disconnect: #e53935;
+            --btn-disconnect-hover: #b71c1c;
+            --text-main: #f5f7fa;
+            --text-muted: #8a99a8;
+            --border-color: #243140;
+            --font-stack: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+
         body {
-            font-family: 'Arial', sans-serif;
-            background-color: #1c1c1c;
-            color: #ffffff;
+            font-family: var(--font-stack);
+            background-color: var(--bg-main);
+            color: var(--text-main);
             margin: 0;
             padding: 0;
+            min-height: 100vh;
+            background-image: radial-gradient(circle at 50% 0%, #1e2d24 0%, var(--bg-main) 70%);
         }
 
-        h1 {
-            text-align: center;
-            margin: 30px 0;
-            font-size: 36px;
-            color: #8BC34A; /* VMware green color */
+        /* Header Branding Layout */
+        #title-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px 20px 20px 20px;
         }
 
+        #vmfinder-header {
+            font-size: 42px;
+            font-weight: 700;
+            letter-spacing: -1px;
+            margin: 0;
+            color: var(--text-main);
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: transform 0.2s ease;
+        }
+
+        #vmfinder-header:hover {
+            transform: scale(1.02);
+        }
+
+        #vmfinder-header i {
+            color: var(--accent-green);
+            text-shadow: 0 0 20px rgba(124, 179, 66, 0.4);
+        }
+
+        /* Search Console Wrapper */
         #searchForm {
-            text-align: center;
-            margin-bottom: 20px;
+            max-width: 600px;
+            margin: 0 auto 35px auto;
+            padding: 0 20px;
+            position: relative;
+        }
+
+        .search-input-wrapper {
+            display: flex;
+            background-color: var(--bg-card);
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            padding: 6px 6px 6px 16px;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            transition: border-color 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        .search-input-wrapper:focus-within {
+            border-color: var(--accent-green);
+            box-shadow: 0 8px 32px rgba(124, 179, 66, 0.15);
+        }
+
+        .search-input-wrapper i.search-field-icon {
+            color: var(--text-muted);
+            font-size: 18px;
         }
 
         #searchInput {
-            padding: 10px;
-            border: 2px solid #8BC34A; /* VMware green color */
-            border-radius: 5px;
-            width: 300px;
-            background-color: #1c1c1c;
-            color: #ffffff;
+            flex: 1;
+            border: none;
+            outline: none;
+            background: transparent;
+            color: var(--text-main);
+            font-family: var(--font-stack);
+            font-size: 16px;
+            font-weight: 500;
+            padding: 8px 0;
+        }
+
+        #searchInput::placeholder {
+            color: var(--text-muted);
         }
 
         button[type="submit"] {
-            padding: 10px 20px;
-            background-color: #8BC34A; /* VMware green color */
+            padding: 10px 24px;
+            background-color: var(--accent-green);
             color: #ffffff;
             border: none;
-            border-radius: 5px;
+            border-radius: 8px;
+            font-family: var(--font-stack);
+            font-weight: 600;
+            font-size: 15px;
             cursor: pointer;
-            transition: background-color 0.3s ease-in-out;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         button[type="submit"]:hover {
-            background-color: #689F38; /* Darker green for hover */
+            background-color: var(--accent-green-hover);
         }
 
-        #searchResults {
-            margin: 0 auto;
-            max-width: 800px;
-            padding: 20px;
-            background-color: #2c2c2c; /* Darker background color */
-            border-radius: 10px;
-            box-shadow: 0px 5px 10px rgba(0, 0, 0, 0.3);
+        button[type="submit"]:active {
+            transform: scale(0.98);
         }
 
-        .vm-info {
-            border-top: 1px solid #333;
-            padding: 15px 0;
-        }
-
-        h2 {
-            margin-top: 0;
-            color: #8BC34A; /* VMware green color */
-        }
-
-        ul {
-            list-style: none;
-            padding: 0;
-        }
-
-        li {
-            margin-bottom: 10px;
-        }
-
-        button.disconnect {
-            padding: 5px 10px;
-            background-color: #ff6347;
-            color: #ffffff;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-
-        button.disconnect:hover {
-            background-color: #c82333;
-        }
-
+        /* Real-Time Processing Indicators */
         #progress-container {
             display: none;
-            justify-content: center;
             align-items: center;
-            margin-top: 10px;
-        }
-
-        #progress-text {
-            margin-right: 10px;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+            background: rgba(20, 27, 34, 0.6);
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
         }
 
         #searchForm.searching #progress-container {
             display: flex;
         }
-        .copy-btn {
-            padding: 5px 10px;
-            margin-left: 5px;
-            background-color: #4CAF50; /* Green color */
-            color: #ffffff;
+
+        #progress-text {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #searchProgress {
+            width: 150px;
+            height: 6px;
+            border-radius: 4px;
+            overflow: hidden;
+            appearance: none;
+        }
+
+        #searchProgress::-webkit-progress-bar {
+            background-color: var(--bg-input);
+        }
+
+        #searchProgress::-webkit-progress-value {
+            background-color: var(--accent-green);
+        }
+
+        /* Primary Content Infrastructure Grid */
+        #searchResults {
+            margin: 0 auto 50px auto;
+            max-width: 850px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .no-records {
+            text-align: center;
+            padding: 40px;
+            background-color: var(--bg-card);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .vm-info {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 24px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+            transition: transform 0.2s ease, border-color 0.2s ease;
+        }
+
+        .vm-info:hover {
+            border-color: rgba(124, 179, 66, 0.3);
+        }
+
+        /* Top Bar Title Card Headers */
+        .vm-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 16px;
+            margin-bottom: 18px;
+        }
+
+        h2 {
+            margin: 0;
+            font-size: 22px;
+            font-weight: 600;
+            color: var(--text-main);
+            letter-spacing: -0.3px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .action-button-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .vm-action-button {
             border: none;
-            border-radius: 5px;
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
             cursor: pointer;
-            transition: background-color 0.3s ease-in-out;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease, transform 0.1s ease;
+        }
+
+        .vm-action-button:active {
+            transform: scale(0.92);
+        }
+
+        .vm-action-button.power-on {
+            background-color: rgba(76, 175, 80, 0.15);
+            color: var(--btn-power);
+            border: 1px solid rgba(76, 175, 80, 0.3);
+        }
+        .vm-action-button.power-on:hover {
+            background-color: var(--btn-power);
+            color: #ffffff;
+        }
+
+        .vm-action-button.reboot {
+            background-color: rgba(255, 179, 0, 0.15);
+            color: var(--btn-reboot);
+            border: 1px solid rgba(255, 179, 0, 0.3);
+        }
+        .vm-action-button.reboot:hover {
+            background-color: var(--btn-reboot);
+            color: #121212;
+        }
+
+        .vm-action-button.shutdown {
+            background-color: rgba(244, 67, 54, 0.15);
+            color: var(--btn-shutdown);
+            border: 1px solid rgba(244, 67, 54, 0.3);
+        }
+        .vm-action-button.shutdown:hover {
+            background-color: var(--btn-shutdown);
+            color: #ffffff;
+        }
+
+        /* Asset Information Meta Grid Rows */
+        .meta-data-line {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin: 8px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .meta-data-line strong {
+            color: var(--text-main);
+            font-weight: 500;
+        }
+
+        /* Standardized Action Button Layout elements */
+        .copy-btn {
+            padding: 4px 10px;
+            background-color: #202b36;
+            color: #a0aec0;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: var(--font-stack);
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
         }
 
         .copy-btn:hover {
-            background-color: #45a049; /* Darker green for hover */
+            background-color: var(--btn-copy-hover);
+            color: #fff;
+            border-color: var(--btn-copy);
         }
 
-        /* Generic Button Styles */
-        .vm-action-button {
-            border: none;
-            padding: 10px 15px;
-            margin: 5px;
-            border-radius: 5px;
+        .copy-btn.copied-success {
+            background-color: var(--btn-copy) !important;
+            color: #ffffff !important;
+            border-color: var(--btn-copy) !important;
+        }
+
+        .primary-ip-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 14px 0;
+            background: rgba(26, 35, 45, 0.4);
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+        }
+
+        .primary-ip-row p {
+            margin: 0;
+            font-size: 15px;
+        }
+
+        .primary-ip-row .ip-val {
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: 700;
+            color: #ffffff;
+            background: #0b0f12;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        /* Secondary Matrix Toggles */
+        .toggle-ips-btn {
+            background-color: #243140;
+            color: var(--text-main);
+            border: 1px solid #334457;
+            padding: 5px 12px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 16px;
+            font-family: var(--font-stack);
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: auto;
+            transition: all 0.2s ease;
+        }
+
+        .toggle-ips-btn:hover {
+            background-color: #2d3d50;
+        }
+
+        /* Dynamic Expandable Interface Lists */
+        .additional-ips-list {
+            margin: -6px 0 16px 24px;
+            padding: 4px 0 4px 16px;
+            border-left: 2px dashed var(--accent-green);
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .ip-address-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13.5px;
+        }
+
+        .ip-address-container .sub-ip-val {
+            font-family: 'Courier New', Courier, monospace;
+            color: #cfd8dc;
+        }
+
+        /* Isolated Device Boundary Grids */
+        .network-section-title {
+            margin: 18px 0 10px 0;
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+        }
+
+        .network-details-list {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+
+        @media (min-width: 768px) {
+            .network-details-list {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .network-adapter-card {
+            background-color: #1a232d;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .adapter-meta-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .adapter-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .badge {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 50px;
+            text-transform: uppercase;
+        }
+
+        .badge.connected {
+            background-color: rgba(76, 175, 80, 0.15);
+            color: #81c784;
+            border: 1px solid rgba(76, 175, 80, 0.3);
+        }
+
+        .badge.disconnected {
+            background-color: rgba(244, 67, 54, 0.15);
+            color: #e57373;
+            border: 1px solid rgba(244, 67, 54, 0.3);
+        }
+
+        .vswitch-text {
+            font-size: 13px;
+            color: var(--text-muted);
+            word-break: break-all;
+        }
+
+        .mac-row {
+            font-size: 12px;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: auto;
+            padding-top: 8px;
+            border-top: 1px solid #243140;
+        }
+
+        .mac-val {
+            font-family: 'Courier New', Courier, monospace;
+            color: #b0bec5;
+        }
+
+        button.disconnect {
+            padding: 4px 10px;
+            background-color: rgba(229, 57, 53, 0.12);
+            color: #ef5350;
+            border: 1px solid rgba(229, 57, 53, 0.3);
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: var(--font-stack);
+            font-size: 11px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        button.disconnect:hover {
+            background-color: var(--btn-disconnect);
+            color: #ffffff;
+            border-color: var(--btn-disconnect);
+        }
+
+        /* Enterprise Modal Authorization Panels */
+        #passwordDialog {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(5, 7, 9, 0.85);
+            backdrop-filter: blur(6px);
+            z-index: 1000;
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        .dialog-content {
+            background-color: var(--bg-card);
+            padding: 28px;
+            border-radius: 16px;
+            width: 320px;
+            margin: 12% auto;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
             text-align: center;
+            animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        /* Power On (Green Play Button) */
-        .vm-action-button.power-on {
-            background-color: #4CAF50; /* Green */
-            color: white;
+        .dialog-icon {
+            font-size: 32px;
+            color: var(--btn-reboot);
+            margin-bottom: 14px;
         }
 
-        /* Reboot (Yellow Circular Arrow) */
-        .vm-action-button.reboot {
-            background-color: #FFC107; /* Yellow */
-            color: black;
+        .dialog-content label {
+            color: var(--text-main);
+            font-size: 15px;
+            font-weight: 600;
+            display: block;
+            margin-bottom: 10px;
         }
 
-        /* Shutdown (Red Square) */
-        .vm-action-button.shutdown {
-            background-color: #F44336; /* Red */
-            color: white;
+        .dialog-content input {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px 12px;
+            width: calc(100% - 26px);
+            font-size: 16px;
+            outline: none;
+            text-align: center;
+            font-family: var(--font-stack);
+            transition: border-color 0.2s ease;
         }
 
+        .dialog-content input:focus {
+            border-color: var(--accent-green);
+        }
+
+        .dialog-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 18px;
+        }
+
+        .dialog-btn {
+            flex: 1;
+            padding: 10px;
+            border-radius: 8px;
+            font-family: var(--font-stack);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s ease;
+        }
+
+        .dialog-btn.confirm {
+            background-color: var(--accent-green);
+            color: #ffffff;
+        }
+        .dialog-btn.confirm:hover {
+            background-color: var(--accent-green-hover);
+        }
+
+        .dialog-btn.cancel {
+            background-color: #243140;
+            color: var(--text-main);
+        }
+        .dialog-btn.cancel:hover {
+            background-color: #2d3d50;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; } to { opacity: 1; }
+        }
+        @keyframes slideUp {
+            from { transform: translateY(15px); } to { transform: translateY(0); }
+        }
     </style>
 </head>
 <body>
+
 <div id="title-container">
-    <h1 id="vmfinder-header" style="cursor: pointer;">VMFinder</h1>
+    <h1 id="vmfinder-header"><i class="fas fa-layer-group"></i> VMFinder</h1>
 </div>
+
 <form id="searchForm">
-    <label for="searchInput">Search VM Name, IP or MAC:</label>
-    <input type="text" id="searchInput" name="query" required>
-    <button type="submit">Search</button>
+    <div class="search-input-wrapper">
+        <i class="fas fa-search search-field-icon"></i>
+        <input type="text" id="searchInput" name="query" placeholder="Search VM Name, IP or MAC address..." required autocomplete="off">
+        <button type="submit">Search</button>
+    </div>
+
     <div id="progress-container">
-        <div id="progress-text">Searching</div>
+        <div id="progress-text"><i class="fas fa-circle-notch fa-spin"></i> Querying Asset Matrix...</div>
         <progress id="searchProgress" value="0" max="100"></progress>
     </div>
 </form>
-<div id="searchResults"></div>
-<div id="passwordDialog" style="display: none; text-align: center;">
-    <div style="background-color: #1e1e1e; padding: 15px; border-radius: 5px; width: 250px; margin: 50px auto;">
-        <label for="passwordInput" style="color: #ffffff; font-size: 14px;">Enter Password:</label>
-        <input type="password" id="passwordInput" placeholder="●●●●●●●●" style="background-color: #2e2e2e; color: #ffffff; border: 1px solid #3e3e3e; border-radius: 4px; padding: 5px; margin-top: 5px; width: 100%;"/>
-        <button onclick="submitPassword()" style="background-color: #4caf50; border: none; border-radius: 5px; color: white; padding: 10px 20px; text-align: center; text-decoration: none; display: inline-block; font-size: 14px; margin: 5px 2px; cursor: pointer;">Submit</button>
 
+<div id="searchResults"></div>
+
+<div id="passwordDialog">
+    <div class="dialog-content">
+        <div class="dialog-icon"><i class="fas fa-shield-halved"></i></div>
+        <label for="passwordInput">Administrative Access Required</label>
+        <input type="password" id="passwordInput" placeholder="••••••••" />
+        <div class="dialog-actions">
+            <button class="dialog-btn cancel" onclick="closePasswordDialog()">Cancel</button>
+            <button class="dialog-btn confirm" onclick="submitPassword()">Confirm</button>
+        </div>
     </div>
 </div>
 
 <script>
-    // Add a click event listener to the header for page refresh
     const vmfinderHeader = document.getElementById('vmfinder-header');
 
     vmfinderHeader.addEventListener('click', function () {
@@ -185,29 +659,23 @@
         const searchQuery = document.getElementById('searchInput').value;
         const searchForm = document.getElementById('searchForm');
         const searchProgress = document.getElementById('searchProgress');
-        const progressContainer = document.getElementById('progress-container');
         const progressText = document.getElementById('progress-text');
 
         searchForm.classList.add('searching');
         searchProgress.style.display = 'block';
-        progressText.style.display = 'block';
-        progressText.textContent = 'Searching';
-        searchProgress.value = 10;
+        progressText.style.display = 'flex';
+        searchProgress.value = 25;
 
         fetch(`/search?query=${encodeURIComponent(searchQuery)}`)
             .then(response => response.json())
             .then(data => {
                 searchForm.classList.remove('searching');
-                searchProgress.style.display = 'none';
-                progressText.style.display = 'none';
                 searchProgress.value = 0;
                 displayResults(data);
             })
             .catch(error => {
                 console.error('Error:', error);
                 searchForm.classList.remove('searching');
-                searchProgress.style.display = 'none';
-                progressText.style.display = 'none';
                 searchProgress.value = 0;
             });
     });
@@ -217,46 +685,83 @@
         searchResultsDiv.innerHTML = '';
 
         if (results.length === 0) {
-            searchResultsDiv.innerHTML = '<p>No matching VMs found.</p>';
+            searchResultsDiv.innerHTML = `<div class="no-records"><i class="fas fa-box-open" style="font-size:24px; margin-bottom:10px; display:block;"></i> No matching infrastructure assets discovered.</div>`;
             return;
         }
 
         for (const result of results) {
             const primaryIP = result.ip_addresses[0] || 'N/A';
             const additionalIPs = result.ip_addresses.slice(1) || [];
+            const hasMoreIPs = additionalIPs.length > 0;
 
             const vmInfoDiv = document.createElement('div');
+            vmInfoDiv.className = 'vm-info';
             vmInfoDiv.innerHTML = `
-            <h2>${result.vm_name}
-                <button class="vm-action-button power-on" onclick="openActionDialog('${result.vm_name}', 'power_on')"><i class="fas fa-play"></i></button>
-                <button class="vm-action-button reboot" onclick="openActionDialog('${result.vm_name}', 'reboot')"><i class="fas fa-redo"></i></button>
-                <button class="vm-action-button shutdown" onclick="openActionDialog('${result.vm_name}', 'shutdown')"><i class="fas fa-stop-circle"></i></button>
-            </h2>
-            <p><strong>vCenter Name:</strong> ${result.vcenter_name} <button onclick="copyToClipboard('${result.vcenter_name}')" class="copy-btn">Copy</button></p>
-            <p><strong>Primary IP Address:</strong> ${primaryIP}</p>
-            <div id="expand-${result.vm_name}" class="expand-button" onclick="toggleIPAddresses('expand-${result.vm_name}', 'ips-${result.vm_name}')"><i class="fas fa-arrow-down"></i></div>
-            <ul id="ips-${result.vm_name}" class="additional-ips" style="display: none;">
+            <div class="vm-card-header">
+                <h2><i class="fas fa-server" style="color:var(--text-muted); font-size:18px;"></i> ${result.vm_name}</h2>
+                <div class="action-button-group">
+                    <button title="Power On" class="vm-action-button power-on" onclick="openActionDialog('${result.vm_name}', 'power_on')"><i class="fas fa-play"></i></button>
+                    <button title="Reboot Guest OS" class="vm-action-button reboot" onclick="openActionDialog('${result.vm_name}', 'reboot')"><i class="fas fa-arrow-rotate-left"></i></button>
+                    <button title="Graceful Shutdown" class="vm-action-button shutdown" onclick="openActionDialog('${result.vm_name}', 'shutdown')"><i class="fas fa-power-off"></i></button>
+                </div>
+            </div>
+            
+            <div class="meta-data-line">
+                <strong>vCenter Node:</strong> 
+                <span>${result.vcenter_name}</span> 
+                <button onclick="copyToClipboard('${result.vcenter_name}', this)" class="copy-btn"><i class="far fa-copy"></i> Copy</button>
+            </div>
+            
+            <div class="primary-ip-row">
+                <p><strong>Primary IP Address:</strong> <span class="ip-val">${primaryIP}</span></p>
+                ${primaryIP !== 'N/A' ? `<button onclick="copyToClipboard('${primaryIP}', this)" class="copy-btn"><i class="far fa-copy"></i> Copy</button>` : ''}
+                ${hasMoreIPs ? `
+                    <button id="expand-${result.vm_name}" 
+                            class="toggle-ips-btn" 
+                            data-count="${additionalIPs.length}" 
+                            onclick="toggleIPAddresses('expand-${result.vm_name}', 'ips-${result.vm_name}')">
+                        <i class="fas fa-chevron-down"></i> Secondary Interfaces (${additionalIPs.length})
+                    </button>` : ''}
+            </div>
+
+            <ul id="ips-${result.vm_name}" class="additional-ips-list" style="display: none;">
                 ${additionalIPs.map(ipAddress => `
                     <li>
                         <div class="ip-address-container">
-                            <span><strong>IP Address:</strong> ${ipAddress}</span>
-                            <button onclick="copyToClipboard('${ipAddress}')" class="copy-btn">Copy</button>
+                            <i class="fas fa-caret-right" style="color:var(--text-muted)"></i>
+                            <span class="sub-ip-val">${ipAddress}</span>
+                            <button onclick="copyToClipboard('${ipAddress}', this)" class="copy-btn"><i class="far fa-copy"></i> Copy</button>
                         </div>
                     </li>
                 `).join('')}
             </ul>
-            <p><strong>Network Info:</strong></p>
-            <ul>
-                ${result.network_details.map(networkDetail => `
-                    <li>
-                        <strong>${networkDetail.adapter_name}:</strong> ${networkDetail.network_name ? 'Connected to ' + networkDetail.network_name : 'Not Connected'}
-                        <br>
-                        <strong>MAC Address:</strong> ${networkDetail.mac_address || 'N/A'}
-                        <button onclick="openDisconnectDialog('${result.vm_name}', '${networkDetail.adapter_name}')" class="disconnect">Disconnect</button>
+            
+            <div class="network-section-title">Hardware Adapters Architecture</div>
+            <ul class="network-details-list">
+                ${result.network_details.map(networkDetail => {
+                const isConnected = networkDetail.network_name ? true : false;
+                return `
+                    <li class="network-adapter-card">
+                        <div class="adapter-meta-top">
+                            <div>
+                                <span class="adapter-label">${networkDetail.adapter_name}</span>
+                                <div class="vswitch-text" style="margin-top: 4px;">
+                                    <i class="fas fa-network-wired" style="font-size:11px; color:var(--text-muted);"></i> 
+                                    ${isConnected ? networkDetail.network_name : 'No virtual switch bound'}
+                                </div>
+                            </div>
+                            <span class="badge ${isConnected ? 'connected' : 'disconnected'}">
+                                ${isConnected ? 'Connected' : 'Disconnected'}
+                            </span>
+                        </div>
+                        <div class="mac-row">
+                            <div>MAC: <span class="mac-val">${networkDetail.mac_address || 'N/A'}</span></div>
+                            ${isConnected ? `<button onclick="openDisconnectDialog('${result.vm_name}', '${networkDetail.adapter_name}')" class="disconnect"><i class="fas fa-link-slash"></i> Isolate</button>` : ''}
+                        </div>
                     </li>
-                `).join('')}
+                    `;
+            }).join('')}
             </ul>
-            <hr>
         `;
             searchResultsDiv.appendChild(vmInfoDiv);
         }
@@ -264,38 +769,64 @@
 
     function toggleIPAddresses(expandId, ipsId) {
         const ipsElement = document.getElementById(ipsId);
+        const btnElement = document.getElementById(expandId);
+        const extraCount = btnElement.getAttribute('data-count');
+
         if (ipsElement.style.display === 'none') {
-            ipsElement.style.display = 'block';
-            document.getElementById(expandId).innerHTML = '<i class="fas fa-arrow-up"></i>';
+            ipsElement.style.display = 'flex';
+            ipsElement.style.flexDirection = 'column';
+            btnElement.innerHTML = '<i class="fas fa-chevron-up"></i> Hide Interfaces';
+            btnElement.style.backgroundColor = 'rgba(124, 179, 66, 0.15)';
+            btnElement.style.borderColor = 'var(--accent-green)';
+            btnElement.style.color = 'var(--accent-green)';
         } else {
             ipsElement.style.display = 'none';
-            document.getElementById(expandId).innerHTML = '<i class="fas fa-arrow-down"></i>';
+            btnElement.innerHTML = `<i class="fas fa-chevron-down"></i> Secondary Interfaces (${extraCount})`;
+            btnElement.style.backgroundColor = '#243140';
+            btnElement.style.borderColor = '#334457';
+            btnElement.style.color = 'var(--text-main)';
         }
     }
 
-    function copyToClipboard(text) {
+    // High performance inline DOM checking to modify icons dynamically rather than global alert calls
+    function copyToClipboard(text, buttonElement) {
         const textarea = document.createElement('textarea');
         textarea.value = text;
         document.body.appendChild(textarea);
         textarea.select();
         document.execCommand('copy');
         document.body.removeChild(textarea);
-        alert('Copied to clipboard!');
+
+        if (buttonElement) {
+            const originalHTML = buttonElement.innerHTML;
+            buttonElement.innerHTML = '<i class="fas fa-check"></i> Copied';
+            buttonElement.classList.add('copied-success');
+            setTimeout(() => {
+                buttonElement.innerHTML = originalHTML;
+                buttonElement.classList.remove('copied-success');
+            }, 1200);
+        }
     }
 
-    // Unified Global Context state instead of overriding submit function signatures on the window object
     let currentActionContext = null;
+
+    function closePasswordDialog() {
+        document.getElementById('passwordDialog').style.display = 'none';
+        currentActionContext = null;
+    }
 
     function openDisconnectDialog(vmName, adapterName) {
         currentActionContext = { type: 'disconnect', vmName, adapterName };
         document.getElementById('passwordInput').value = '';
         document.getElementById('passwordDialog').style.display = 'block';
+        document.getElementById('passwordInput').focus();
     }
 
     function openActionDialog(vmName, action) {
         currentActionContext = { type: 'control', vmName, action };
         document.getElementById('passwordInput').value = '';
         document.getElementById('passwordDialog').style.display = 'block';
+        document.getElementById('passwordInput').focus();
     }
 
     function submitPassword() {
@@ -348,7 +879,6 @@
                 .catch(err => alert(err.message));
         }
     }
-
 </script>
 </body>
 </html>
