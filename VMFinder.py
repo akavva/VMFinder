@@ -1,7 +1,10 @@
 from dotenv import load_dotenv
 load_dotenv()
 import os
+import sys
 import ssl
+import argparse
+import getpass
 import threading
 import hashlib
 import secrets
@@ -14,6 +17,17 @@ from pyVim.connect import SmartConnect
 from pyVmomi import vim
 
 # ---------------------------------------------------------------------------
+# Paths — when run as a PyInstaller onefile binary, bundled data (templates/)
+# lives in the extracted temp dir (sys._MEIPASS); persistent files (config,
+# audit log) live in the user's config dir so they survive across runs
+# regardless of which directory the binary is launched from.
+# ---------------------------------------------------------------------------
+BASE_DIR   = sys._MEIPASS if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
+CONFIG_DIR = os.environ.get('VMFINDER_HOME', os.path.join(os.path.expanduser('~'), '.config', 'vmfinder'))
+CONFIG_FILE = os.path.join(CONFIG_DIR, 'config.env')
+os.makedirs(CONFIG_DIR, exist_ok=True)
+
+# ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------
 logging.basicConfig(
@@ -21,7 +35,7 @@ logging.basicConfig(
     format='%(asctime)s [%(levelname)s] %(message)s',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler('vmfinder_audit.log')
+        logging.FileHandler(os.path.join(CONFIG_DIR, 'vmfinder_audit.log'))
     ]
 )
 log = logging.getLogger('VMFinder')
@@ -29,7 +43,6 @@ log = logging.getLogger('VMFinder')
 # ---------------------------------------------------------------------------
 # App setup
 # ---------------------------------------------------------------------------
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(
     __name__,
     template_folder=os.path.join(BASE_DIR, 'templates'),
@@ -39,16 +52,113 @@ ssl._create_default_https_context = ssl._create_unverified_context
 CORS(app)
 
 # ---------------------------------------------------------------------------
-# Configuration  –  move credentials to environment variables or a config
-# file; never commit real passwords to source control.
-# Generate a hash:  python -c "import hashlib; print(hashlib.sha256(b'mypassword').hexdigest())"
+# Interactive first-run setup wizard — prompts for the admin password and
+# vCenter details when no configuration is found, and saves them to
+# CONFIG_FILE so future runs start up silently.
+# ---------------------------------------------------------------------------
+def _prompt_admin_password() -> str:
+    while True:
+        pw1 = getpass.getpass('Set an admin password (required to confirm VM power actions / cache refresh): ')
+        if len(pw1) < 4:
+            print('Password must be at least 4 characters.\n')
+            continue
+        pw2 = getpass.getpass('Confirm admin password: ')
+        if pw1 != pw2:
+            print('Passwords did not match, try again.\n')
+            continue
+        return hashlib.sha256(pw1.encode()).hexdigest()
+
+
+def _prompt_vcenters() -> list:
+    servers = []
+    idx = 1
+    print('\nNow add the vCenter(s) VMFinder should connect to.')
+    while True:
+        ans = input(f'Add vCenter #{idx}? [y/N]: ').strip().lower()
+        if ans not in ('y', 'yes'):
+            break
+        name = input('  Display name (e.g. DC-East): ').strip() or f'VCENTER{idx}'
+        ip = input('  IP address or FQDN: ').strip()
+        if not ip:
+            print('  IP/FQDN is required — skipping this entry.')
+            continue
+        user = input('  Username: ').strip()
+        pw = getpass.getpass('  Password: ')
+        port_raw = input('  Port [443]: ').strip()
+        try:
+            port = int(port_raw) if port_raw else 443
+        except ValueError:
+            port = 443
+        servers.append({'name': name, 'ip': ip, 'user': user, 'pass': pw, 'port': port})
+        idx += 1
+    return servers
+
+
+def run_setup_wizard(config_path: str) -> None:
+    print('=' * 60)
+    print(' VMFinder — first-run setup')
+    print('=' * 60)
+    admin_hash = _prompt_admin_password()
+    servers = _prompt_vcenters()
+
+    lines = [f'VMFINDER_ADMIN_HASH={admin_hash}']
+    for n, s in enumerate(servers, start=1):
+        lines += [
+            f"VC{n}_NAME={s['name']}",
+            f"VC{n}_IP={s['ip']}",
+            f"VC{n}_USER={s['user']}",
+            f"VC{n}_PASS={s['pass']}",
+            f"VC{n}_PORT={s['port']}",
+        ]
+
+    with open(config_path, 'w') as f:
+        f.write('\n'.join(lines) + '\n')
+    os.chmod(config_path, 0o600)
+    print(f'\nSaved configuration to {config_path}')
+    print('(Run with --reconfigure to change these settings later.)\n')
+
+
+def _is_configured() -> bool:
+    return bool(os.environ.get('VMFINDER_ADMIN_HASH')) and bool(os.environ.get('VC1_IP'))
+
+
+def ensure_configured(force: bool = False) -> None:
+    if not force and _is_configured():
+        return
+    if not force and os.path.exists(CONFIG_FILE):
+        # override=True: the wizard-saved config is authoritative over any
+        # stray local .env (e.g. leftover placeholder values from a git clone)
+        load_dotenv(CONFIG_FILE, override=True)
+        if _is_configured():
+            return
+    if not sys.stdin.isatty():
+        log.warning(
+            "VMFinder is not configured (missing VMFINDER_ADMIN_HASH / VC1_IP) and no "
+            "interactive terminal is available to run the setup wizard. Set environment "
+            "variables or create %s manually.", CONFIG_FILE
+        )
+        return
+    run_setup_wizard(CONFIG_FILE)
+    load_dotenv(CONFIG_FILE, override=True)
+
+
+_arg_parser = argparse.ArgumentParser(description='VMFinder')
+_arg_parser.add_argument('--reconfigure', action='store_true',
+                          help='Re-run the interactive setup wizard, replacing any saved configuration')
+cli_args, _ = _arg_parser.parse_known_args()
+
+ensure_configured(force=cli_args.reconfigure)
+
+# ---------------------------------------------------------------------------
+# Configuration  –  loaded from real environment variables, CONFIG_FILE, or
+# the setup wizard above (in that priority order).
 # ---------------------------------------------------------------------------
 ADMIN_PASSWORD_SHA256 = os.environ.get(
     'VMFINDER_ADMIN_HASH',
     'YOUR_SHA256_HASH_HERE'   # replace with sha256 of your chosen password
 )
 
-# Dynamically load as many vCenters as defined in .env (VC1_IP, VC2_IP, VC3_IP, ...)
+# Dynamically load as many vCenters as defined in the environment (VC1_IP, VC2_IP, VC3_IP, ...)
 # Stops at the first index where VC{n}_IP is not set. No upper limit.
 vcenter_servers = []
 i = 1
@@ -66,7 +176,7 @@ while True:
     i += 1
 
 if not vcenter_servers:
-    log.warning("No vCenter servers found in environment. Define VC1_IP, VC1_USER, VC1_PASS etc. in your .env file.")
+    log.warning("No vCenter servers configured. Run with --reconfigure to set one up.")
 
 # FIX: use a Lock to prevent race conditions on vm_cache between threads
 vm_cache: dict = {}
@@ -151,7 +261,7 @@ class KeepAlive(threading.Thread):
 
     def _reconnect(self):
         log.warning(f"KeepAlive: lost connection to {self.vcenter_info['IP']}, reconnecting...")
-        new_conn, _ = connect_to_vcenter(self.vcenter_info, silent=True)
+        new_conn = connect_to_vcenter(self.vcenter_info, silent=True)
         if new_conn:
             self.service_instance = new_conn
             new_data = cache_vm_info(new_conn, self.vcenter_info['name'], silent=True)
@@ -177,10 +287,10 @@ def connect_to_vcenter(vcenter_info: dict, silent: bool = False):
         keep_alive = KeepAlive(service_instance, vcenter_info)
         keep_alive.start()
         vcenter_info['connection'] = service_instance
-        return service_instance, vcenter_info
+        return service_instance
     except Exception as e:
         log.error(f"Error connecting to vCenter {vcenter_info['IP']}: {e}")
-        return None, vcenter_info
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -293,7 +403,7 @@ log.info("Initializing connections and building memory cache maps...")
 connected_vcenter_names = []
 
 for srv in vcenter_servers:
-    conn, _ = connect_to_vcenter(srv)
+    conn = connect_to_vcenter(srv)
     if conn:
         with cache_lock:
             vm_cache[srv['name']] = cache_vm_info(conn, srv['name'])

@@ -834,10 +834,16 @@
         errEl.textContent = '';
         if (!pinInput.value) { errEl.textContent = 'Password is required.'; return; }
 
-        const url     = currentActionContext.type === 'disconnect' ? '/disconnect' : '/control_vm';
-        const payload = currentActionContext.type === 'disconnect'
-            ? { vm_name: currentActionContext.vmName, adapter_name: currentActionContext.adapterName, password: pinInput.value }
-            : { vm_name: currentActionContext.vmName, action: currentActionContext.action, password: pinInput.value };
+        const isRefresh   = currentActionContext.type === 'refresh';
+        const url         = isRefresh ? '/refresh_cache'
+            : currentActionContext.type === 'disconnect' ? '/disconnect' : '/control_vm';
+        const payload     = isRefresh ? { password: pinInput.value }
+            : currentActionContext.type === 'disconnect'
+                ? { vm_name: currentActionContext.vmName, adapter_name: currentActionContext.adapterName, password: pinInput.value }
+                : { vm_name: currentActionContext.vmName, action: currentActionContext.action, password: pinInput.value };
+
+        const refreshBtn = document.getElementById('refresh-btn');
+        if (isRefresh) refreshBtn.classList.add('spinning');
 
         fetch(url, {
             method: 'POST',
@@ -851,11 +857,15 @@
             })
             .then(data => {
                 dialog.style.display = 'none';
+                if (isRefresh) refreshBtn.classList.remove('spinning');
                 // Refresh the current search results so power state / adapter badge updates
                 if (currentQuery) runSearch();
                 showToast(data.message);
             })
-            .catch(err => { errEl.textContent = err.message; });
+            .catch(err => {
+                if (isRefresh) refreshBtn.classList.remove('spinning');
+                errEl.textContent = err.message;
+            });
     }
 
     // ---------------------------------------------------------------------------
@@ -867,42 +877,6 @@
         sub.innerHTML = 'Rebuild <strong>VM inventory cache</strong> from all vCenters';
         _openDialog();
     }
-
-    // Patch submitPassword to also handle refresh
-    const _origSubmit = submitPassword;
-    submitPassword = function () {
-        if (currentActionContext && currentActionContext.type === 'refresh') {
-            const errEl = document.getElementById('dialogError');
-            errEl.textContent = '';
-            if (!pinInput.value) { errEl.textContent = 'Password is required.'; return; }
-
-            const refreshBtn = document.getElementById('refresh-btn');
-            refreshBtn.classList.add('spinning');
-
-            fetch('/refresh_cache', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password: pinInput.value })
-            })
-                .then(res => {
-                    if (res.status === 401) throw new Error('Incorrect password.');
-                    if (res.status === 429) throw new Error('Too many requests. Please wait.');
-                    return res.json();
-                })
-                .then(data => {
-                    dialog.style.display = 'none';
-                    refreshBtn.classList.remove('spinning');
-                    showToast(data.message);
-                    if (currentQuery) runSearch();
-                })
-                .catch(err => {
-                    refreshBtn.classList.remove('spinning');
-                    errEl.textContent = err.message;
-                });
-        } else {
-            _origSubmit();
-        }
-    };
 
     // ---------------------------------------------------------------------------
     // Toast notification (replaces alert())

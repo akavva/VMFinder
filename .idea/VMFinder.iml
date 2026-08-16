@@ -6,7 +6,7 @@
       <excludeFolder url="file://$MODULE_DIR$/.venv" />
       <excludeFolder url="file://$MODULE_DIR$/olderenv" />
     </content>
-    <orderEntry type="jdk" jdkName="Python 3.14 (VMFinder)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Python 3.12 (VMFinder)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
 </module>
