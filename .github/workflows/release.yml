@@ -20,13 +20,27 @@ jobs:
 
       - name: Build vmfinder.exe
         shell: cmd
+        env:
+          VMFINDER_VERSION: ${{ github.ref_name }}
         run: build.bat
 
-      - name: Verify the exe was produced
+      - name: Verify the exe was produced and reports the right version
         shell: pwsh
         run: |
           if (!(Test-Path "dist\vmfinder.exe")) {
             throw "Build did not produce dist\vmfinder.exe"
+          }
+
+          $reported = & "dist\vmfinder.exe" --version
+          Write-Host "vmfinder.exe --version -> $reported"
+          if ($reported -notlike "*${{ github.ref_name }}*") {
+            throw "Expected version ${{ github.ref_name }} but got: $reported"
+          }
+
+          $fileVersion = (Get-Item "dist\vmfinder.exe").VersionInfo.FileVersion
+          Write-Host "Embedded file version -> $fileVersion"
+          if ($fileVersion -notlike "*${{ github.ref_name }}*") {
+            throw "Expected embedded file version ${{ github.ref_name }} but got: $fileVersion"
           }
 
       - name: Smoke test vmfinder.exe
@@ -64,12 +78,16 @@ jobs:
             throw "vmfinder.exe did not respond with HTTP 200 on port 5000 within 20 seconds"
           }
 
+      - name: Name the release asset by version
+        shell: pwsh
+        run: Copy-Item "dist\vmfinder.exe" "dist\vmfinder-${{ github.ref_name }}.exe"
+
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           gh release create "${{ github.ref_name }}" \
-            "dist/vmfinder.exe" \
+            "dist/vmfinder-${{ github.ref_name }}.exe" \
             --title "VMFinder ${{ github.ref_name }}" \
             --generate-notes

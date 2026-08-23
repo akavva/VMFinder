@@ -17,17 +17,21 @@ if not exist .venv (
 call .venv\Scripts\activate.bat
 
 pip install -q -r requirements.txt
-pip install -q pyinstaller
+pip install -q pyinstaller pywin32
+
+if "%VMFINDER_VERSION%"=="" set VMFINDER_VERSION=dev
+python generate_version_info.py %VMFINDER_VERSION%
 
 pyinstaller --onefile --name vmfinder ^
     --icon "templates\static\favicon.ico" ^
     --add-data "templates;templates" ^
+    --version-file version_info.txt ^
     --collect-all pyVmomi ^
     --collect-all pyVim ^
     VMFinder.py
 
 rmdir /s /q build 2>nul
-del /q vmfinder.spec 2>nul
+del /q vmfinder.spec version_info.txt 2>nul
 
 echo.
 echo Built: dist\vmfinder.exe

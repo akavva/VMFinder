@@ -16,6 +16,7 @@ from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from pyVim.connect import SmartConnect, Disconnect
 from pyVmomi import vim
+from _version import VERSION
 
 # ---------------------------------------------------------------------------
 # Paths — when run as a PyInstaller onefile binary, bundled data (templates/)
@@ -213,8 +214,14 @@ def ensure_configured(force: bool = False) -> None:
 _arg_parser = argparse.ArgumentParser(description='VMFinder')
 _arg_parser.add_argument('--reconfigure', action='store_true',
                           help='Re-run the interactive setup wizard, replacing any saved configuration')
+_arg_parser.add_argument('--version', action='store_true', help='Print the version and exit')
 cli_args, _ = _arg_parser.parse_known_args()
 
+if cli_args.version:
+    print(f'VMFinder {VERSION}')
+    sys.exit(0)
+
+log.info(f'VMFinder {VERSION} starting...')
 ensure_configured(force=cli_args.reconfigure)
 
 # ---------------------------------------------------------------------------
@@ -510,7 +517,7 @@ if connected_vcenter_names:
 # ---------------------------------------------------------------------------
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', version=VERSION)
 
 
 @app.route('/search', methods=['GET'])
