@@ -275,6 +275,23 @@ def check_password(password: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Task helper
+# ---------------------------------------------------------------------------
+def wait_for_task(task, timeout: int = 30):
+    """Block until a vCenter Task reaches a terminal state. ReconfigVM_Task /
+    PowerOn etc. return immediately with a pending Task — without this, a
+    route can report success before vCenter has actually applied the change,
+    so a cache refresh run right after can still read the pre-change state."""
+    start = time.time()
+    while task.info.state not in (vim.TaskInfo.State.success, vim.TaskInfo.State.error):
+        if time.time() - start > timeout:
+            raise TimeoutError(f'Task did not complete within {timeout}s')
+        time.sleep(0.5)
+    if task.info.state == vim.TaskInfo.State.error:
+        raise Exception(task.info.error.msg if task.info.error else 'Task failed')
+
+
+# ---------------------------------------------------------------------------
 # Audit logger
 # ---------------------------------------------------------------------------
 def audit(action: str, vm_name: str, detail: str = '', success: bool = True):
@@ -564,7 +581,7 @@ def disconnect_network_adapter_route():
                     connected=False, startConnected=False
                 )
                 spec.deviceChange = [change]
-                target_vm.ReconfigVM_Task(spec=spec)
+                wait_for_task(target_vm.ReconfigVM_Task(spec=spec))
                 audit('disconnect', vm_name, f'adapter={adapter_name}')
                 return jsonify({'message': f'Interface {adapter_name} completely isolated.'}), 200
             except Exception as e:
@@ -599,7 +616,7 @@ def control_vm():
 
     try:
         if action == 'power_on':
-            target_vm.PowerOn()
+            wait_for_task(target_vm.PowerOn())
         elif action == 'reboot':
             target_vm.RebootGuest()
         elif action == 'shutdown':
