@@ -1,0 +1,71 @@
+name: Windows build & smoke test
+
+on:
+  push:
+    branches: [windows-exe]
+  workflow_dispatch: {}
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build vmfinder.exe
+        shell: cmd
+        run: build.bat
+
+      - name: Verify the exe was produced
+        shell: pwsh
+        run: |
+          if (!(Test-Path "dist\vmfinder.exe")) {
+            throw "Build did not produce dist\vmfinder.exe"
+          }
+
+      - name: Start vmfinder.exe with a test configuration and check it serves
+        shell: pwsh
+        run: |
+          $env:VMFINDER_HOME = Join-Path $env:RUNNER_TEMP "vmfinder-home"
+          New-Item -ItemType Directory -Force -Path $env:VMFINDER_HOME | Out-Null
+
+          $env:VMFINDER_ADMIN_HASH = (python -c "import hashlib; print(hashlib.sha256(b'ci-test-password').hexdigest())")
+          $env:VC1_NAME = "CI-TestVC"
+          $env:VC1_IP   = "127.0.0.1"
+          $env:VC1_USER = "ci-user"
+          $env:VC1_PASS = "ci-pass"
+          $env:VC1_PORT = "443"
+
+          $proc = Start-Process -FilePath "dist\vmfinder.exe" -PassThru -RedirectStandardOutput "vmfinder-stdout.log" -RedirectStandardError "vmfinder-stderr.log"
+
+          $ok = $false
+          for ($i = 0; $i -lt 20; $i++) {
+            Start-Sleep -Seconds 1
+            try {
+              $response = Invoke-WebRequest -Uri "http://127.0.0.1:5000/" -UseBasicParsing -TimeoutSec 3
+              if ($response.StatusCode -eq 200) { $ok = $true; break }
+            } catch {}
+          }
+
+          Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+
+          Write-Host "----- stdout -----"
+          Get-Content "vmfinder-stdout.log" -ErrorAction SilentlyContinue
+          Write-Host "----- stderr -----"
+          Get-Content "vmfinder-stderr.log" -ErrorAction SilentlyContinue
+
+          if (-not $ok) {
+            throw "vmfinder.exe did not respond with HTTP 200 on port 5000 within 20 seconds"
+          }
+          Write-Host "Smoke test passed: vmfinder.exe served HTTP 200 on port 5000"
+
+      - name: Upload built exe
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vmfinder-windows-exe
+          path: dist/vmfinder.exe
+          if-no-files-found: warn

@@ -1,114 +1,71 @@
-# 🌐 VMFinder
+# VMFinder
 
-VMFinder is a high-performance, lightweight Flask web application designed for system administrators and security incident responders. It provides a unified dashboard to instantly locate, inspect, and manage virtual machines across multiple VMware vCenter instances simultaneously.
-
-During active security incidents, VMFinder enables authorized personnel to instantly isolate compromised infrastructure by safely disconnecting virtual network adapters (NICs) or managing power states straight from the browser UI.
+VMFinder is a lightweight Flask app for locating and managing VMs across multiple VMware vCenter instances at once. Search by VM name, IP, or MAC across all connected vCenters, then disconnect a NIC or change power state straight from the browser — built for incident responders who need to isolate a compromised machine fast.
 
 ---
 
-## ✨ Features
+## Requirements
 
-* **⚡ Ultra-Fast Search Matrix:** Instantly search through thousands of assets by:
-  * Full or partial **VM Name**
-  * Full or partial **IP Address**
-  * Full or partial **MAC Address**
-* **🌐 Multi-vCenter Aggregation:** Query multiple vCenter environments simultaneously into a single search grid.
-* **🚀 Server-Side API Property Collection:** Utilizes highly optimized VMware `PropertyCollector` batching to index hundreds of VMs in seconds instead of sequential polling.
-* **🛡️ Rapid Incident Isolation:** Disconnect virtual network adapters instantly to quarantine infected machines from the rest of the corporate network.
-* **🔌 Power State Control:** Issue execution signals (`Power On`, `Reboot`, `Shutdown`) directly from the search cards.
-* **🔒 Obfuscated Access Safeguards:** Critical operational infrastructure endpoints require explicit administrative authentication verified securely on the backend server.
+* Access credentials for one or more vCenter servers.
+* **Windows:** nothing — just the `vmfinder.exe` from [Releases](https://github.com/akavva/VMFinder/releases).
+* **Linux/macOS:** Python 3.8+ to run from source.
 
 ---
 
-## 📋 Prerequisites & Requirements
+## Windows quick start
 
-* **Python 3.8+**
-* **VMware vSphere Environment** (vCenter access credentials)
-* **Python Libraries:**
-  * `pyvmomi` (Official VMware vSphere SDK for Python)
-  * `Flask`
-  * `flask-cors`
+1. Download `vmfinder.exe` from the [Releases page](https://github.com/akavva/VMFinder/releases/latest) and run it.
+2. On first run it walks you through a setup wizard — admin password, then your vCenter(s) (name, IP/FQDN, username, password, port). It tests each vCenter connection live and lets you fix any typos before saving.
+3. **Allow the app through Windows Firewall.** Windows may prompt you to allow it automatically the first time it runs — click **Allow**. If it doesn't prompt (e.g. a locked-down machine), add the rule yourself in an elevated PowerShell:
+   ```powershell
+   netsh advfirewall firewall add rule name="VMFinder" dir=in action=allow protocol=TCP localport=5000
+   ```
+4. Open **http://localhost:5000** in a browser.
+
+To change the saved vCenters or admin password later: `vmfinder.exe --reconfigure`.
+
+> Prefer to build it yourself instead of using the release binary? Install [Python 3.8+](https://www.python.org/downloads/windows/) (check "Add python.exe to PATH"), clone this repo, and run `build.bat` — it creates a virtual environment, installs dependencies, and produces `dist\vmfinder.exe`. PyInstaller doesn't cross-compile, so this has to run on Windows.
 
 ---
 
-## 🛠️ Installation & Setup
+## Running from source
 
-### 1. Clone the Repository
 ```bash
 git clone https://github.com/akavva/VMFinder.git
 cd VMFinder
-
-```
-
-### 2. Configure Virtual Environment & Dependencies
-
-```bash
-# Create a virtual environment
 python -m venv .venv
-
-# Activate the virtual environment (Windows)
-.venv\Scripts\activate
-
-# Install required dependencies
+source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-
+python VMFinder.py             # first run launches the setup wizard
 ```
 
-### 3. Application Configuration
+`python VMFinder.py --reconfigure` re-runs the wizard and replaces the saved config.
 
-Open `VMFinder.py` and configure your cluster target matrix inside the `vcenter_servers` block:
+For non-interactive/automated deployments, skip the wizard by setting environment variables directly: `VMFINDER_ADMIN_HASH` (sha256 of the admin password — generate with `python -c "import hashlib; print(hashlib.sha256(b'mypassword').hexdigest())"`), then `VC1_NAME`, `VC1_IP`, `VC1_USER`, `VC1_PASS`, `VC1_PORT` per vCenter (`VC2_*`, `VC3_*`, ... for more).
 
-```python
-vcenter_servers = [
-    {
-        'name': 'Production-vCenter-01', # Your actual VCENTER name or mnemonic
-        'hostname': '192.168.1.100', # Your vCenter IP or FQDN
-        'username': 'VCENTER_account', # Administartor or other account with adequate priliveges
-        'password': 'VCENTER_PASSWORD',
-        'port': 443
-    }
-]
-
-```
-
-> 💡 **Security Best Practice:** Ensure the vCenter service account is configured with the *Principle of Least Privilege* (only allow VM interaction power states and device modification roles).
+Open **http://localhost:5000** in a browser once it's running.
 
 ---
 
-## 🚀 Usage
+## API Reference
 
-1. **Launch the Flask Web App Server:**
-```bash
-python VMFinder.py
-
-```
-
-
-2. **Access the Application Interface:**
-Open your preferred browser and navigate to:
-👉 **`http://localhost:5000`** *(or your host's external network IP address on Port 5000)*
-
----
-
-## 🔍 API Architecture Reference
-
-| Method | Endpoint | Description | Auth Required |
+| Method | Endpoint | Description | Auth |
 | --- | --- | --- | --- |
-| **`GET`** | `/` | Renders the primary search dashboard interface. | No |
-| **`GET`** | `/search?query=<text>` | Queries the memory cache map array for matching string patterns. | No |
-| **`POST`** | `/disconnect` | Payload: `{ "vm_name": "x", "adapter_name": "y", "password": "z" }` — Disconnects network device cards. | **Yes** |
-| **`POST`** | `/control_vm` | Payload: `{ "vm_name": "x", "action": "power_on|reboot|shutdown", "password": "z" }` | **Yes** |
-| **`POST`** | `/validate_password` | Evaluates client authentication sequences using constant-time evaluation mechanisms. | **Yes** |
+| `GET` | `/` | Search dashboard. | No |
+| `GET` | `/search?query=<text>` | Search the cached VM data by name/IP/MAC. | No |
+| `POST` | `/disconnect` | `{ "vm_name", "adapter_name", "password" }` — disconnects a NIC. | Yes |
+| `POST` | `/control_vm` | `{ "vm_name", "action": "power_on\|reboot\|shutdown", "password" }` | Yes |
+| `POST` | `/refresh_cache` | `{ "password" }` — rebuilds the VM cache from all connected vCenters. | Yes |
 
 ---
 
-## ⚠️ Notes & Security Considerations
+## Security notes
 
-* **SSL Handshake Overrides:** By design, the script uses `ssl._create_unverified_context()` to handle self-signed internal corporate vCenter certificates without crashing execution chains.
-* **Network Isolation Deployment:** If hosting this tool to a wide infrastructure management team, it is highly recommended to run the app behind a secure reverse proxy (like Nginx) wrapping the session inside **HTTPS** to encrypt client authentication payloads across the wire.
+* The app disables SSL certificate verification (`ssl._create_unverified_context`) to tolerate self-signed internal vCenter certs — this affects the whole process.
+* The admin password is a single shared secret gating all mutating actions, not per-user auth. If exposing this beyond localhost, put it behind a reverse proxy with HTTPS.
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
-Contributions are welcome! If you want to build out the UI layout badges, or improve detection parameters, please open an Issue or submit a Pull Request
+Issues and pull requests welcome.

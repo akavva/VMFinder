@@ -1,17 +1,33 @@
 from dotenv import load_dotenv
 load_dotenv()
 import os
+import sys
 import ssl
+import argparse
+import getpass
 import threading
 import hashlib
 import secrets
 import time
 import logging
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from functools import wraps
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
-from pyVim.connect import SmartConnect
+from pyVim.connect import SmartConnect, Disconnect
 from pyVmomi import vim
+
+# ---------------------------------------------------------------------------
+# Paths — when run as a PyInstaller onefile binary, bundled data (templates/)
+# lives in the extracted temp dir (sys._MEIPASS); persistent files (config,
+# audit log) live in the user's config dir so they survive across runs
+# regardless of where the binary is launched from or that its bundle dir is
+# ephemeral.
+# ---------------------------------------------------------------------------
+BASE_DIR    = sys._MEIPASS if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
+CONFIG_DIR  = os.environ.get('VMFINDER_HOME', os.path.join(os.path.expanduser('~'), '.config', 'vmfinder'))
+CONFIG_FILE = os.path.join(CONFIG_DIR, 'config.env')
+os.makedirs(CONFIG_DIR, exist_ok=True)
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -21,7 +37,7 @@ logging.basicConfig(
     format='%(asctime)s [%(levelname)s] %(message)s',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler('vmfinder_audit.log')
+        logging.FileHandler(os.path.join(CONFIG_DIR, 'vmfinder_audit.log'))
     ]
 )
 log = logging.getLogger('VMFinder')
@@ -29,7 +45,6 @@ log = logging.getLogger('VMFinder')
 # ---------------------------------------------------------------------------
 # App setup
 # ---------------------------------------------------------------------------
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(
     __name__,
     template_folder=os.path.join(BASE_DIR, 'templates'),
@@ -39,16 +54,153 @@ ssl._create_default_https_context = ssl._create_unverified_context
 CORS(app)
 
 # ---------------------------------------------------------------------------
-# Configuration  –  move credentials to environment variables or a config
-# file; never commit real passwords to source control.
-# Generate a hash:  python -c "import hashlib; print(hashlib.sha256(b'mypassword').hexdigest())"
+# Interactive first-run setup wizard — prompts for the admin password and
+# vCenter details when no configuration is found, and saves them to
+# CONFIG_FILE so future runs start up silently.
+# ---------------------------------------------------------------------------
+def _prompt_admin_password() -> str:
+    while True:
+        pw1 = getpass.getpass('Set an admin password (required to confirm VM power actions / cache refresh): ')
+        if len(pw1) < 4:
+            print('Password must be at least 4 characters.\n')
+            continue
+        pw2 = getpass.getpass('Confirm admin password: ')
+        if pw1 != pw2:
+            print('Passwords did not match, try again.\n')
+            continue
+        return hashlib.sha256(pw1.encode()).hexdigest()
+
+
+def _test_vcenter_connection(ip: str, user: str, pw: str, port: int, timeout: int = 8):
+    """Best-effort live check that these vCenter details actually work. Runs the
+    connect attempt in a background thread so a wrong IP/unreachable host can't
+    hang the wizard — pyVmomi's SmartConnect has no built-in connect timeout."""
+    pool = ThreadPoolExecutor(max_workers=1)
+
+    def _attempt():
+        si = SmartConnect(host=ip, user=user, pwd=pw, port=port)
+        Disconnect(si)
+
+    future = pool.submit(_attempt)
+    try:
+        future.result(timeout=timeout)
+        return True, None
+    except FutureTimeoutError:
+        return False, f'no response after {timeout}s — check the IP/FQDN and port'
+    except Exception as e:
+        return False, str(e)
+    finally:
+        pool.shutdown(wait=False)
+
+
+def _prompt_vcenters() -> list:
+    servers = []
+    idx = 1
+    print('\nNow add the vCenter(s) VMFinder should connect to.')
+    while True:
+        ans = input(f'Add vCenter #{idx}? [y/N]: ').strip().lower()
+        if ans not in ('y', 'yes'):
+            break
+
+        while True:
+            name = input('  Display name (e.g. DC-East): ').strip() or f'VCENTER{idx}'
+            ip = input('  IP address or FQDN: ').strip()
+            if not ip:
+                print('  IP/FQDN is required, try again.\n')
+                continue
+            user = input('  Username: ').strip()
+            pw = getpass.getpass('  Password: ')
+            port_raw = input('  Port [443]: ').strip()
+            try:
+                port = int(port_raw) if port_raw else 443
+            except ValueError:
+                print(f'  {port_raw!r} is not a valid port number, defaulting to 443.')
+                port = 443
+
+            print('  Testing connection...')
+            ok, err = _test_vcenter_connection(ip, user, pw, port)
+            entry = {'name': name, 'ip': ip, 'user': user, 'pass': pw, 'port': port}
+            if ok:
+                print('  Connected successfully.\n')
+                servers.append(entry)
+                break
+
+            print(f'  Could not connect: {err}')
+            retry = input('  Re-enter these details? [Y/n] (n keeps them anyway): ').strip().lower()
+            if retry in ('n', 'no'):
+                servers.append(entry)
+                break
+            print()
+
+        idx += 1
+    return servers
+
+
+def run_setup_wizard(config_path: str) -> None:
+    print('=' * 60)
+    print(' VMFinder — first-run setup')
+    print('=' * 60)
+    admin_hash = _prompt_admin_password()
+    servers = _prompt_vcenters()
+
+    lines = [f'VMFINDER_ADMIN_HASH={admin_hash}']
+    for n, s in enumerate(servers, start=1):
+        lines += [
+            f"VC{n}_NAME={s['name']}",
+            f"VC{n}_IP={s['ip']}",
+            f"VC{n}_USER={s['user']}",
+            f"VC{n}_PASS={s['pass']}",
+            f"VC{n}_PORT={s['port']}",
+        ]
+
+    with open(config_path, 'w') as f:
+        f.write('\n'.join(lines) + '\n')
+    os.chmod(config_path, 0o600)
+    print(f'\nSaved configuration to {config_path}')
+    print('(Run with --reconfigure to change these settings later.)\n')
+
+
+def _is_configured() -> bool:
+    return bool(os.environ.get('VMFINDER_ADMIN_HASH')) and bool(os.environ.get('VC1_IP'))
+
+
+def ensure_configured(force: bool = False) -> None:
+    if not force and _is_configured():
+        return
+    if not force and os.path.exists(CONFIG_FILE):
+        # override=True: the wizard-saved config is authoritative over any
+        # stray local .env (e.g. leftover placeholder values from a git clone)
+        load_dotenv(CONFIG_FILE, override=True)
+        if _is_configured():
+            return
+    if not sys.stdin.isatty():
+        log.warning(
+            "VMFinder is not configured (missing VMFINDER_ADMIN_HASH / VC1_IP) and no "
+            "interactive terminal is available to run the setup wizard. Set environment "
+            "variables or create %s manually.", CONFIG_FILE
+        )
+        return
+    run_setup_wizard(CONFIG_FILE)
+    load_dotenv(CONFIG_FILE, override=True)
+
+
+_arg_parser = argparse.ArgumentParser(description='VMFinder')
+_arg_parser.add_argument('--reconfigure', action='store_true',
+                          help='Re-run the interactive setup wizard, replacing any saved configuration')
+cli_args, _ = _arg_parser.parse_known_args()
+
+ensure_configured(force=cli_args.reconfigure)
+
+# ---------------------------------------------------------------------------
+# Configuration  –  loaded from real environment variables, CONFIG_FILE, or
+# the setup wizard above (in that priority order).
 # ---------------------------------------------------------------------------
 ADMIN_PASSWORD_SHA256 = os.environ.get(
     'VMFINDER_ADMIN_HASH',
     'YOUR_SHA256_HASH_HERE'   # replace with sha256 of your chosen password
 )
 
-# Dynamically load as many vCenters as defined in .env (VC1_IP, VC2_IP, VC3_IP, ...)
+# Dynamically load as many vCenters as defined in the environment (VC1_IP, VC2_IP, VC3_IP, ...)
 # Stops at the first index where VC{n}_IP is not set. No upper limit.
 vcenter_servers = []
 i = 1
@@ -56,17 +208,23 @@ while True:
     ip = os.environ.get(f'VC{i}_IP')
     if not ip:
         break
+    port_raw = os.environ.get(f'VC{i}_PORT', '443')
+    try:
+        port = int(port_raw)
+    except ValueError:
+        log.warning("VC%d_PORT=%r is not a valid port number, defaulting to 443.", i, port_raw)
+        port = 443
     vcenter_servers.append({
         'name':     os.environ.get(f'VC{i}_NAME',  f'VCENTER{i}'),
         'IP':       ip,
         'username': os.environ.get(f'VC{i}_USER',  ''),
         'password': os.environ.get(f'VC{i}_PASS',  ''),
-        'port':     int(os.environ.get(f'VC{i}_PORT', 443))
+        'port':     port
     })
     i += 1
 
 if not vcenter_servers:
-    log.warning("No vCenter servers found in environment. Define VC1_IP, VC1_USER, VC1_PASS etc. in your .env file.")
+    log.warning("No vCenter servers configured. Run with --reconfigure to set one up.")
 
 # FIX: use a Lock to prevent race conditions on vm_cache between threads
 vm_cache: dict = {}
@@ -114,6 +272,23 @@ def check_password(password: str) -> bool:
         return False
     attempt_hash = hashlib.sha256(password.encode()).hexdigest()
     return secrets.compare_digest(attempt_hash, ADMIN_PASSWORD_SHA256)
+
+
+# ---------------------------------------------------------------------------
+# Task helper
+# ---------------------------------------------------------------------------
+def wait_for_task(task, timeout: int = 30):
+    """Block until a vCenter Task reaches a terminal state. ReconfigVM_Task /
+    PowerOn etc. return immediately with a pending Task — without this, a
+    route can report success before vCenter has actually applied the change,
+    so a cache refresh run right after can still read the pre-change state."""
+    start = time.time()
+    while task.info.state not in (vim.TaskInfo.State.success, vim.TaskInfo.State.error):
+        if time.time() - start > timeout:
+            raise TimeoutError(f'Task did not complete within {timeout}s')
+        time.sleep(0.5)
+    if task.info.state == vim.TaskInfo.State.error:
+        raise Exception(task.info.error.msg if task.info.error else 'Task failed')
 
 
 # ---------------------------------------------------------------------------
@@ -349,7 +524,12 @@ def search_vms():
                                 'network_name':  dev.backing.network.name
                                 if hasattr(dev.backing, 'network') and dev.backing.network
                                 else None,
-                                'mac_address':   dev.macAddress
+                                'mac_address':   dev.macAddress,
+                                # FIX: report the actual live connection state — the
+                                # network/port-group assignment (network_name) stays
+                                # in place after /disconnect, only connectable.connected
+                                # flips, so the UI must key off this, not network_name.
+                                'connected':     bool(dev.connectable and dev.connectable.connected)
                             })
 
                 results.append({
@@ -406,7 +586,7 @@ def disconnect_network_adapter_route():
                     connected=False, startConnected=False
                 )
                 spec.deviceChange = [change]
-                target_vm.ReconfigVM_Task(spec=spec)
+                wait_for_task(target_vm.ReconfigVM_Task(spec=spec))
                 audit('disconnect', vm_name, f'adapter={adapter_name}')
                 return jsonify({'message': f'Interface {adapter_name} completely isolated.'}), 200
             except Exception as e:
@@ -441,7 +621,7 @@ def control_vm():
 
     try:
         if action == 'power_on':
-            target_vm.PowerOn()
+            wait_for_task(target_vm.PowerOn())
         elif action == 'reboot':
             target_vm.RebootGuest()
         elif action == 'shutdown':
