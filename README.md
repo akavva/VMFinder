@@ -34,7 +34,14 @@ During active security incidents, VMFinder enables authorized personnel to insta
 
 ## 💻 Windows: Standalone Executable
 
-No Python install and no `pip install` needed. Download `vmfinder.exe`, place it next to a `.env` file configured as described in [Application Configuration](#3-application-configuration) below, and run it (double-click, or from a terminal).
+No Python install, no `pip install`, no manual config file editing. Download `vmfinder.exe` and double-click it (or run it from a terminal).
+
+On first run it launches an interactive setup wizard that asks for an admin password and your vCenter(s) (name, IP/FQDN, username, password, port), then saves that configuration to `%USERPROFILE%\.config\vmfinder\config.env` so future launches start up silently.
+
+To change the saved vCenters or admin password later, run:
+```powershell
+vmfinder.exe --reconfigure
+```
 
 Once running, open **`http://localhost:5000`** in a browser.
 
@@ -67,20 +74,16 @@ pip install -r requirements.txt
 
 ### 3. Application Configuration
 
-Open `VMFinder.py` and configure your cluster target matrix inside the `vcenter_servers` block:
+Configuration is not hardcoded — it's resolved from environment variables, a saved config file, or an interactive setup wizard (in that order). The wizard runs automatically the first time you start the app if no configuration is found:
 
-```python
-vcenter_servers = [
-    {
-        'name': 'Production-vCenter-01', # Your actual VCENTER name or mnemonic
-        'hostname': '192.168.1.100', # Your vCenter IP or FQDN
-        'username': 'VCENTER_account', # Administartor or other account with adequate priliveges
-        'password': 'VCENTER_PASSWORD',
-        'port': 443
-    }
-]
-
+```bash
+python VMFinder.py                 # first run launches the setup wizard
+python VMFinder.py --reconfigure   # re-run the wizard, replacing saved config
 ```
+
+It asks for an admin password (required to confirm VM power actions / cache refresh) and one or more vCenters (name, IP/FQDN, username, password, port), then saves them to `~/.config/vmfinder/config.env`.
+
+To configure non-interactively instead (e.g. for automated deployments), set these environment variables directly: `VMFINDER_ADMIN_HASH` (sha256 hash of the admin password — generate with `python -c "import hashlib; print(hashlib.sha256(b'mypassword').hexdigest())"`), then `VC1_NAME`, `VC1_IP`, `VC1_USER`, `VC1_PASS`, `VC1_PORT` for each vCenter (`VC2_*`, `VC3_*`, ... for additional ones).
 
 > 💡 **Security Best Practice:** Ensure the vCenter service account is configured with the *Principle of Least Privilege* (only allow VM interaction power states and device modification roles).
 
@@ -109,7 +112,7 @@ Open your preferred browser and navigate to:
 | **`GET`** | `/search?query=<text>` | Queries the memory cache map array for matching string patterns. | No |
 | **`POST`** | `/disconnect` | Payload: `{ "vm_name": "x", "adapter_name": "y", "password": "z" }` — Disconnects network device cards. | **Yes** |
 | **`POST`** | `/control_vm` | Payload: `{ "vm_name": "x", "action": "power_on|reboot|shutdown", "password": "z" }` | **Yes** |
-| **`POST`** | `/validate_password` | Evaluates client authentication sequences using constant-time evaluation mechanisms. | **Yes** |
+| **`POST`** | `/refresh_cache` | Payload: `{ "password": "z" }` — Rebuilds the in-memory VM cache from all connected vCenters. | **Yes** |
 
 ---
 
