@@ -524,7 +524,12 @@ def search_vms():
                                 'network_name':  dev.backing.network.name
                                 if hasattr(dev.backing, 'network') and dev.backing.network
                                 else None,
-                                'mac_address':   dev.macAddress
+                                'mac_address':   dev.macAddress,
+                                # FIX: report the actual live connection state — the
+                                # network/port-group assignment (network_name) stays
+                                # in place after /disconnect, only connectable.connected
+                                # flips, so the UI must key off this, not network_name.
+                                'connected':     bool(dev.connectable and dev.connectable.connected)
                             })
 
                 results.append({

@@ -763,8 +763,8 @@
             adapterCard.className = 'network-adapter-card';
 
             const badge = document.createElement('span');
-            badge.className = `badge ${net.network_name ? 'connected' : 'disconnected'}`;
-            setText(badge, net.network_name ? 'Connected' : 'Disconnected');
+            badge.className = `badge ${net.connected ? 'connected' : 'disconnected'}`;
+            setText(badge, net.connected ? 'Connected' : 'Disconnected');
 
             const adapterTitle = document.createElement('div');
             adapterTitle.style.cssText = 'font-weight:600;font-size:14px;margin-top:4px;';
@@ -782,7 +782,7 @@
             setText(macSpan, net.mac_address || 'N/A');
             macRow.appendChild(macSpan);
 
-            if (net.network_name) {
+            if (net.connected) {
                 const isoBtn = document.createElement('button');
                 isoBtn.className = 'disconnect';
                 isoBtn.textContent = 'Isolate';
@@ -865,7 +865,6 @@
     function _openDialog() {
         pinInput.value = '';
         document.getElementById('dialogError').textContent = '';
-        document.getElementById('dialogConfirmBtn').disabled = false;
         dialog.style.display = 'block';
         pinInput.focus();
     }
@@ -886,14 +885,9 @@
     }
 
     function submitPassword() {
-        const errEl      = document.getElementById('dialogError');
-        const confirmBtn = document.getElementById('dialogConfirmBtn');
+        const errEl = document.getElementById('dialogError');
         errEl.textContent = '';
         if (!pinInput.value) { errEl.textContent = 'Password is required.'; return; }
-        // FIX: disable Confirm while the request is in flight — otherwise repeat
-        // clicks during a slow request (e.g. refresh_cache) fire it multiple times.
-        if (confirmBtn.disabled) return;
-        confirmBtn.disabled = true;
 
         const isRefresh  = currentActionContext.type === 'refresh';
         const url        = isRefresh ? '/refresh_cache'
@@ -902,6 +896,12 @@
             : currentActionContext.type === 'disconnect'
                 ? { vm_name: currentActionContext.vmName, adapter_name: currentActionContext.adapterName, password: pinInput.value }
                 : { vm_name: currentActionContext.vmName, action: currentActionContext.action, password: pinInput.value };
+
+        // FIX: close immediately instead of holding the dialog open for however
+        // long the request takes (a cache refresh can take several seconds) —
+        // that's what let repeat clicks on Confirm fire the request over and
+        // over. Progress/result now shows via the spinning refresh icon + toast.
+        dialog.style.display = 'none';
 
         const refreshBtn = document.getElementById('refresh-btn');
         if (isRefresh) refreshBtn.classList.add('spinning');
@@ -917,7 +917,6 @@
                 return res.json();
             })
             .then(data => {
-                dialog.style.display = 'none';
                 if (isRefresh) refreshBtn.classList.remove('spinning');
                 // Refresh the current search results so power state / adapter badge updates
                 if (currentQuery) runSearch();
@@ -925,28 +924,27 @@
             })
             .catch(err => {
                 if (isRefresh) refreshBtn.classList.remove('spinning');
-                errEl.textContent = err.message;
-            })
-            .finally(() => { confirmBtn.disabled = false; });
+                showToast(err.message, true);
+            });
     }
 
     // ---------------------------------------------------------------------------
     // Toast notification (replaces alert())
     // ---------------------------------------------------------------------------
-    function showToast(msg) {
+    function showToast(msg, isError = false) {
         let toast = document.getElementById('vmf-toast');
         if (!toast) {
             toast = document.createElement('div');
             toast.id = 'vmf-toast';
             toast.style.cssText = `
             position:fixed; bottom:28px; left:50%; transform:translateX(-50%);
-            background:#1e2d24; border:1px solid var(--accent-green);
-            color:var(--text-main); padding:12px 24px; border-radius:10px;
+            background:#1e2d24; color:var(--text-main); padding:12px 24px; border-radius:10px;
             font-size:14px; z-index:2000; box-shadow:0 4px 20px rgba(0,0,0,0.5);
             transition:opacity 0.3s ease; pointer-events:none;
         `;
             document.body.appendChild(toast);
         }
+        toast.style.border = `1px solid ${isError ? '#e74c3c' : 'var(--accent-green)'}`;
         toast.textContent = msg;
         toast.style.opacity = '1';
         clearTimeout(toast._timer);
