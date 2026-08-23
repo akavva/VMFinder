@@ -1,4 +1,4 @@
-from dotenv import load_dotenv
+from dotenv import load_dotenv, dotenv_values
 load_dotenv()
 import os
 import sys
@@ -137,21 +137,39 @@ def _prompt_vcenters() -> list:
 
 
 def run_setup_wizard(config_path: str) -> None:
-    print('=' * 60)
-    print(' VMFinder — first-run setup')
-    print('=' * 60)
-    admin_hash = _prompt_admin_password()
-    servers = _prompt_vcenters()
+    existing = dotenv_values(config_path) if os.path.exists(config_path) else {}
+    existing_admin_hash = existing.get('VMFINDER_ADMIN_HASH')
+    existing_vc_lines = {k: v for k, v in existing.items() if k.startswith('VC')}
 
-    lines = [f'VMFINDER_ADMIN_HASH={admin_hash}']
-    for n, s in enumerate(servers, start=1):
-        lines += [
-            f"VC{n}_NAME={s['name']}",
-            f"VC{n}_IP={s['ip']}",
-            f"VC{n}_USER={s['user']}",
-            f"VC{n}_PASS={s['pass']}",
-            f"VC{n}_PORT={s['port']}",
-        ]
+    print('=' * 60)
+    print(' VMFinder — setup' if existing else ' VMFinder — first-run setup')
+    print('=' * 60)
+
+    if existing_admin_hash:
+        change = input('Change the admin password? [y/N]: ').strip().lower()
+        admin_hash = _prompt_admin_password() if change in ('y', 'yes') else existing_admin_hash
+    else:
+        admin_hash = _prompt_admin_password()
+
+    if existing_vc_lines:
+        change = input('Reconfigure vCenters? [y/N] (N keeps the existing list): ').strip().lower()
+        vc_lines = [f'{k}={v}' for k, v in existing_vc_lines.items()] if change not in ('y', 'yes') else None
+    else:
+        vc_lines = None
+
+    if vc_lines is None:
+        servers = _prompt_vcenters()
+        vc_lines = []
+        for n, s in enumerate(servers, start=1):
+            vc_lines += [
+                f"VC{n}_NAME={s['name']}",
+                f"VC{n}_IP={s['ip']}",
+                f"VC{n}_USER={s['user']}",
+                f"VC{n}_PASS={s['pass']}",
+                f"VC{n}_PORT={s['port']}",
+            ]
+
+    lines = [f'VMFINDER_ADMIN_HASH={admin_hash}'] + vc_lines
 
     with open(config_path, 'w') as f:
         f.write('\n'.join(lines) + '\n')
