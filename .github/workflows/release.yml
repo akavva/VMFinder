@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  build-and-release:
+  build-windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -78,16 +78,90 @@ jobs:
             throw "vmfinder.exe did not respond with HTTP 200 on port 5000 within 20 seconds"
           }
 
-      - name: Name the release asset by version
-        shell: pwsh
-        run: Copy-Item "dist\vmfinder.exe" "dist\vmfinder-${{ github.ref_name }}.exe"
+      - name: Upload vmfinder.exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: vmfinder-windows
+          path: dist/vmfinder.exe
+          if-no-files-found: error
+
+  build-linux:
+    runs-on: ubuntu-latest
+    # glibc 2.28 (AlmaLinux 8) so the binary also starts on RHEL/Rocky 8,
+    # Ubuntu 20.04 and Debian 10 — see .github/workflows/linux-build.yml.
+    # The /opt/python/cpXXX-cpXXX interpreters this image ships for building
+    # portable wheels are compiled without --enable-shared (manylinux policy),
+    # so PyInstaller can't link against libpython from them. The image's
+    # system /usr/bin/python3.12 is a normal dynamically-linked build, so use
+    # that instead.
+    container: quay.io/pypa/manylinux_2_28_x86_64
+    env:
+      PYTHON: /usr/bin/python3.12
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build dist/vmfinder
+        env:
+          VMFINDER_VERSION: ${{ github.ref_name }}
+        run: ./build.sh
+
+      - name: Verify the binary was produced and reports the right version
+        run: |
+          if [ ! -x dist/vmfinder ]; then
+            echo "Build did not produce an executable dist/vmfinder"
+            exit 1
+          fi
+          ls -lh dist/vmfinder
+
+          reported="$(./dist/vmfinder --version)"
+          echo "vmfinder --version -> $reported"
+          case "$reported" in
+            *"${{ github.ref_name }}"*) ;;
+            *) echo "Expected version ${{ github.ref_name }} but got: $reported"; exit 1 ;;
+          esac
+
+      - name: Smoke test dist/vmfinder
+        run: ci/smoke-test.sh
+
+      - name: Upload vmfinder binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: vmfinder-linux
+          path: dist/vmfinder
+          if-no-files-found: error
+
+  publish:
+    needs: [build-windows, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: vmfinder-windows
+          path: assets
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: vmfinder-linux
+          path: assets
+
+      - name: Name the release assets
+        run: |
+          # The Windows asset carries the tag, matching earlier releases. The
+          # Linux asset deliberately does not, so that
+          # /releases/latest/download/vmfinder-linux-x86_64 is a stable URL the
+          # README can hand users as a one-line curl. The tag is still
+          # recoverable from the binary itself via --version.
+          mv assets/vmfinder.exe "assets/vmfinder-${GITHUB_REF_NAME}.exe"
+          mv assets/vmfinder assets/vmfinder-linux-x86_64
+          ls -lh assets
 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-        shell: bash
+          GH_REPO: ${{ github.repository }}
         run: |
-          gh release create "${{ github.ref_name }}" \
-            "dist/vmfinder-${{ github.ref_name }}.exe" \
-            --title "VMFinder ${{ github.ref_name }}" \
+          gh release create "${GITHUB_REF_NAME}" \
+            "assets/vmfinder-${GITHUB_REF_NAME}.exe" \
+            "assets/vmfinder-linux-x86_64" \
+            --title "VMFinder ${GITHUB_REF_NAME}" \
             --generate-notes
