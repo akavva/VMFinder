@@ -146,13 +146,10 @@ jobs:
 
       - name: Name the release assets
         run: |
-          # The Windows asset carries the tag, matching earlier releases. The
-          # Linux asset deliberately does not, so that
-          # /releases/latest/download/vmfinder-linux-x86_64 is a stable URL the
-          # README can hand users as a one-line curl. The tag is still
-          # recoverable from the binary itself via --version.
+          # Both assets carry the tag, e.g. vmfinder-v2.1.0.exe and
+          # vmfinder-v2.1.0-linux-x86_64.
           mv assets/vmfinder.exe "assets/vmfinder-${GITHUB_REF_NAME}.exe"
-          mv assets/vmfinder assets/vmfinder-linux-x86_64
+          mv assets/vmfinder "assets/vmfinder-${GITHUB_REF_NAME}-linux-x86_64"
           ls -lh assets
 
       - name: Create GitHub Release
@@ -162,6 +159,6 @@ jobs:
         run: |
           gh release create "${GITHUB_REF_NAME}" \
             "assets/vmfinder-${GITHUB_REF_NAME}.exe" \
-            "assets/vmfinder-linux-x86_64" \
+            "assets/vmfinder-${GITHUB_REF_NAME}-linux-x86_64" \
             --title "VMFinder ${GITHUB_REF_NAME}" \
             --generate-notes
