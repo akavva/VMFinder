@@ -16,9 +16,9 @@ VMFinder is a lightweight Flask app for locating and managing VMs across multipl
 
 1. Download the binary for your OS from the [latest release](https://github.com/akavva/VMFinder/releases/latest).
 2. **Windows:** just run it. Allow it through Windows Firewall when prompted (or add the rule yourself: `netsh advfirewall firewall add rule name="VMFinder" dir=in action=allow protocol=TCP localport=5000`).
-   **Linux:** `chmod +x vmfinder-*-linux-x86_64 && ./vmfinder-*-linux-x86_64`. Open port 5000 if you need to reach it from another machine: `sudo firewall-cmd --add-port=5000/tcp --permanent && sudo firewall-cmd --reload` (RHEL/Rocky) or `sudo ufw allow 5000/tcp` (Debian/Ubuntu).
-3. First run walks you through a setup wizard — admin password, then your vCenter(s) (name, IP/FQDN, username, password, port). It tests each connection live before saving.
-4. Open **http://localhost:5000** in a browser.
+3. **Linux:** `chmod +x vmfinder-*-linux-x86_64 && ./vmfinder-*-linux-x86_64`. Open port 5000 if you need to reach it from another machine: `sudo firewall-cmd --add-port=5000/tcp --permanent && sudo firewall-cmd --reload` (RHEL/Rocky) or `sudo ufw allow 5000/tcp` (Debian/Ubuntu).
+4. First run walks you through a setup wizard — admin password, then your vCenter(s) (name, IP/FQDN, username, password, port). It tests each connection live before saving.
+5. Open **http://localhost:5000** in a browser or **http://<Your-IP>:5000**.
 
 Re-run with `--reconfigure` to change the saved vCenters or admin password later.
 
@@ -38,10 +38,6 @@ python VMFinder.py             # first run launches the setup wizard
 ```
 
 `python VMFinder.py --reconfigure` re-runs the wizard and replaces the saved config.
-
-For non-interactive/automated deployments, skip the wizard by setting environment variables directly: `VMFINDER_ADMIN_HASH` (sha256 of the admin password — generate with `python -c "import hashlib; print(hashlib.sha256(b'mypassword').hexdigest())"`), then `VC1_NAME`, `VC1_IP`, `VC1_USER`, `VC1_PASS`, `VC1_PORT` per vCenter (`VC2_*`, `VC3_*`, ... for more).
-
-Open **http://localhost:5000** in a browser once it's running.
 
 ---
 
