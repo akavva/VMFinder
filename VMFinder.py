@@ -1,6 +1,7 @@
 from dotenv import load_dotenv
 load_dotenv()
 import os
+import sys
 import ssl
 import threading
 import hashlib
@@ -29,7 +30,9 @@ log = logging.getLogger('VMFinder')
 # ---------------------------------------------------------------------------
 # App setup
 # ---------------------------------------------------------------------------
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# When bundled as a PyInstaller --onefile executable, bundled data (templates/)
+# is extracted to a temp dir at sys._MEIPASS rather than living next to the exe.
+BASE_DIR = sys._MEIPASS if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
 app = Flask(
     __name__,
     template_folder=os.path.join(BASE_DIR, 'templates'),

@@ -22,16 +22,27 @@ During active security incidents, VMFinder enables authorized personnel to insta
 
 ## 📋 Prerequisites & Requirements
 
-* **Python 3.8+**
 * **VMware vSphere Environment** (vCenter access credentials)
-* **Python Libraries:**
-  * `pyvmomi` (Official VMware vSphere SDK for Python)
-  * `Flask`
-  * `flask-cors`
+* Either:
+  * **Windows:** no prerequisites — just the standalone `vmfinder.exe` (see below), or
+  * **Python 3.8+** if running from source, with:
+    * `pyvmomi` (Official VMware vSphere SDK for Python)
+    * `Flask`
+    * `flask-cors`
 
 ---
 
-## 🛠️ Installation & Setup
+## 💻 Windows: Standalone Executable
+
+No Python install and no `pip install` needed. Download `vmfinder.exe`, place it next to a `.env` file configured as described in [Application Configuration](#3-application-configuration) below, and run it (double-click, or from a terminal).
+
+Once running, open **`http://localhost:5000`** in a browser.
+
+> Building `vmfinder.exe` yourself: run `build.bat` on a Windows machine (PyInstaller does not cross-compile, so this can't be built from Linux/macOS). It bundles Python, Flask and pyVmomi into a single `dist\vmfinder.exe` — see [`build.bat`](build.bat).
+
+---
+
+## 🛠️ Installation & Setup (running from source)
 
 ### 1. Clone the Repository
 ```bash
