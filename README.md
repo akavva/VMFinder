@@ -7,23 +7,24 @@ VMFinder is a lightweight Flask app for locating and managing VMs across multipl
 ## Requirements
 
 * Access credentials for one or more vCenter servers.
-* **Windows:** Python 3.8+ (only needed once, to build `vmfinder.exe` — see below).
+* **Windows:** nothing — just the `vmfinder.exe` from [Releases](https://github.com/akavva/VMFinder/releases).
 * **Linux/macOS:** Python 3.8+ to run from source.
 
 ---
 
 ## Windows quick start
 
-1. Install [Python 3.8+](https://www.python.org/downloads/windows/) — check **"Add python.exe to PATH"** during install.
-2. Clone this repo and run `build.bat`. It creates a virtual environment, installs dependencies, and produces `dist\vmfinder.exe`.
-3. Run `vmfinder.exe`. On first run it walks you through a setup wizard — admin password, then your vCenter(s) (name, IP/FQDN, username, password, port). It tests each vCenter connection live and lets you fix any typos before saving.
-4. **Allow the app through Windows Firewall.** Windows may prompt you to allow it automatically the first time it runs — click **Allow**. If it doesn't prompt (e.g. a locked-down machine), add the rule yourself in an elevated PowerShell:
+1. Download `vmfinder.exe` from the [Releases page](https://github.com/akavva/VMFinder/releases/latest) and run it.
+2. On first run it walks you through a setup wizard — admin password, then your vCenter(s) (name, IP/FQDN, username, password, port). It tests each vCenter connection live and lets you fix any typos before saving.
+3. **Allow the app through Windows Firewall.** Windows may prompt you to allow it automatically the first time it runs — click **Allow**. If it doesn't prompt (e.g. a locked-down machine), add the rule yourself in an elevated PowerShell:
    ```powershell
    netsh advfirewall firewall add rule name="VMFinder" dir=in action=allow protocol=TCP localport=5000
    ```
-5. Open **http://localhost:5000** in a browser.
+4. Open **http://localhost:5000** in a browser.
 
 To change the saved vCenters or admin password later: `vmfinder.exe --reconfigure`.
+
+> Prefer to build it yourself instead of using the release binary? Install [Python 3.8+](https://www.python.org/downloads/windows/) (check "Add python.exe to PATH"), clone this repo, and run `build.bat` — it creates a virtual environment, installs dependencies, and produces `dist\vmfinder.exe`. PyInstaller doesn't cross-compile, so this has to run on Windows.
 
 ---
 
