@@ -452,7 +452,7 @@
         <div class="dialog-error" id="dialogError"></div>
         <div class="dialog-actions">
             <button class="dialog-btn cancel" onclick="closePasswordDialog()">Cancel</button>
-            <button class="dialog-btn confirm" onclick="submitPassword()">Confirm</button>
+            <button class="dialog-btn confirm" id="dialogConfirmBtn" onclick="submitPassword()">Confirm</button>
         </div>
     </div>
 </div>
@@ -478,11 +478,39 @@
     function setText(el, str) { el.textContent = str; }
 
     function copyText(text, btn) {
-        navigator.clipboard.writeText(text).then(() => {
+        const onSuccess = () => {
             btn.classList.add('copied-success');
             btn.textContent = 'Copied!';
             setTimeout(() => { btn.classList.remove('copied-success'); btn.textContent = 'Copy'; }, 1000);
-        });
+        };
+        const onFailure = () => {
+            btn.textContent = 'Failed';
+            setTimeout(() => { btn.textContent = 'Copy'; }, 1000);
+        };
+        // FIX: navigator.clipboard is only available in secure contexts (https or
+        // localhost) — accessing this app over a plain-http LAN IP silently has
+        // no clipboard API at all, so fall back to the legacy execCommand copy.
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text).then(onSuccess).catch(() => legacyCopy(text, onSuccess, onFailure));
+        } else {
+            legacyCopy(text, onSuccess, onFailure);
+        }
+    }
+
+    function legacyCopy(text, onSuccess, onFailure) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        try {
+            document.execCommand('copy') ? onSuccess() : onFailure();
+        } catch (e) {
+            onFailure();
+        }
+        document.body.removeChild(ta);
     }
 
     function toggleIPs(safeId, count) {
@@ -837,6 +865,7 @@
     function _openDialog() {
         pinInput.value = '';
         document.getElementById('dialogError').textContent = '';
+        document.getElementById('dialogConfirmBtn').disabled = false;
         dialog.style.display = 'block';
         pinInput.focus();
     }
@@ -849,15 +878,33 @@
     // Click outside dialog content closes it
     dialog.addEventListener('click', e => { if (e.target === dialog) closePasswordDialog(); });
 
+    function openRefreshDialog() {
+        currentActionContext = { type: 'refresh' };
+        const sub = document.getElementById('dialogSubtitle');
+        sub.innerHTML = 'Rebuild <strong>VM inventory cache</strong> from all vCenters';
+        _openDialog();
+    }
+
     function submitPassword() {
-        const errEl = document.getElementById('dialogError');
+        const errEl      = document.getElementById('dialogError');
+        const confirmBtn = document.getElementById('dialogConfirmBtn');
         errEl.textContent = '';
         if (!pinInput.value) { errEl.textContent = 'Password is required.'; return; }
+        // FIX: disable Confirm while the request is in flight — otherwise repeat
+        // clicks during a slow request (e.g. refresh_cache) fire it multiple times.
+        if (confirmBtn.disabled) return;
+        confirmBtn.disabled = true;
 
-        const url     = currentActionContext.type === 'disconnect' ? '/disconnect' : '/control_vm';
-        const payload = currentActionContext.type === 'disconnect'
-            ? { vm_name: currentActionContext.vmName, adapter_name: currentActionContext.adapterName, password: pinInput.value }
-            : { vm_name: currentActionContext.vmName, action: currentActionContext.action, password: pinInput.value };
+        const isRefresh  = currentActionContext.type === 'refresh';
+        const url        = isRefresh ? '/refresh_cache'
+            : currentActionContext.type === 'disconnect' ? '/disconnect' : '/control_vm';
+        const payload    = isRefresh ? { password: pinInput.value }
+            : currentActionContext.type === 'disconnect'
+                ? { vm_name: currentActionContext.vmName, adapter_name: currentActionContext.adapterName, password: pinInput.value }
+                : { vm_name: currentActionContext.vmName, action: currentActionContext.action, password: pinInput.value };
+
+        const refreshBtn = document.getElementById('refresh-btn');
+        if (isRefresh) refreshBtn.classList.add('spinning');
 
         fetch(url, {
             method: 'POST',
@@ -871,58 +918,17 @@
             })
             .then(data => {
                 dialog.style.display = 'none';
+                if (isRefresh) refreshBtn.classList.remove('spinning');
                 // Refresh the current search results so power state / adapter badge updates
                 if (currentQuery) runSearch();
                 showToast(data.message);
             })
-            .catch(err => { errEl.textContent = err.message; });
-    }
-
-    // ---------------------------------------------------------------------------
-    // Refresh cache dialog (reuses password dialog flow)
-    // ---------------------------------------------------------------------------
-    function openRefreshDialog() {
-        currentActionContext = { type: 'refresh' };
-        const sub = document.getElementById('dialogSubtitle');
-        sub.innerHTML = 'Rebuild <strong>VM inventory cache</strong> from all vCenters';
-        _openDialog();
-    }
-
-    // Patch submitPassword to also handle refresh
-    const _origSubmit = submitPassword;
-    submitPassword = function () {
-        if (currentActionContext && currentActionContext.type === 'refresh') {
-            const errEl = document.getElementById('dialogError');
-            errEl.textContent = '';
-            if (!pinInput.value) { errEl.textContent = 'Password is required.'; return; }
-
-            const refreshBtn = document.getElementById('refresh-btn');
-            refreshBtn.classList.add('spinning');
-
-            fetch('/refresh_cache', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password: pinInput.value })
+            .catch(err => {
+                if (isRefresh) refreshBtn.classList.remove('spinning');
+                errEl.textContent = err.message;
             })
-                .then(res => {
-                    if (res.status === 401) throw new Error('Incorrect password.');
-                    if (res.status === 429) throw new Error('Too many requests. Please wait.');
-                    return res.json();
-                })
-                .then(data => {
-                    dialog.style.display = 'none';
-                    refreshBtn.classList.remove('spinning');
-                    showToast(data.message);
-                    if (currentQuery) runSearch();
-                })
-                .catch(err => {
-                    refreshBtn.classList.remove('spinning');
-                    errEl.textContent = err.message;
-                });
-        } else {
-            _origSubmit();
-        }
-    };
+            .finally(() => { confirmBtn.disabled = false; });
+    }
 
     // ---------------------------------------------------------------------------
     // Toast notification (replaces alert())
