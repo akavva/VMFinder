@@ -530,9 +530,27 @@
         runSearch();
     });
 
+    let progressTimer = null;
+
+    function startProgressAnimation() {
+        const bar = document.getElementById('searchProgress');
+        bar.value = 10;
+        clearInterval(progressTimer);
+        progressTimer = setInterval(() => {
+            if (bar.value < 90) bar.value += Math.random() * 12;
+        }, 200);
+    }
+
+    function stopProgressAnimation() {
+        clearInterval(progressTimer);
+        progressTimer = null;
+        document.getElementById('searchProgress').value = 100;
+    }
+
     function runSearch() {
         const form = document.getElementById('searchForm');
         form.classList.add('searching');
+        startProgressAnimation();
         document.getElementById('searchResults').innerHTML = '';
         document.getElementById('pagination').innerHTML = '';
 
@@ -542,10 +560,12 @@
                 return res.json();
             })
             .then(data => {
+                stopProgressAnimation();
                 form.classList.remove('searching');
                 displayResults(data.results, data.total, data.page, data.pages);
             })
             .catch(err => {
+                stopProgressAnimation();
                 form.classList.remove('searching');
                 // FIX: visible error state instead of silent spinner removal
                 showError(err.message || 'Search failed. Check your connection or server logs.');
