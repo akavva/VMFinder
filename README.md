@@ -7,8 +7,8 @@ VMFinder is a lightweight Flask app for locating and managing VMs across multipl
 ## Requirements
 
 * Access credentials for one or more vCenter servers.
-* **Windows:** nothing — just the `vmfinder.exe` from [Releases](https://github.com/akavva/VMFinder/releases).
-* **Linux/macOS:** Python 3.8+ to run from source.
+* **Windows:** Only the `vmfinder.exe` from [Releases](https://github.com/akavva/VMFinder/releases).
+* **Linux/macOS:** Python 3.12+ to run from source.
 
 ---
 
@@ -24,7 +24,7 @@ VMFinder is a lightweight Flask app for locating and managing VMs across multipl
 
 To change the saved vCenters or admin password later: `vmfinder.exe --reconfigure`.
 
-> Prefer to build it yourself instead of using the release binary? Install [Python 3.8+](https://www.python.org/downloads/windows/) (check "Add python.exe to PATH"), clone this repo, and run `build.bat` — it creates a virtual environment, installs dependencies, and produces `dist\vmfinder.exe`. PyInstaller doesn't cross-compile, so this has to run on Windows.
+> Prefer to build it yourself instead of using the release binary? Install [Python 3.12+](https://www.python.org/downloads/windows/) (check "Add python.exe to PATH"), clone this repo, and run `build.bat` — it creates a virtual environment, installs dependencies, and produces `dist\vmfinder.exe`. PyInstaller doesn't cross-compile, so this has to run on Windows.
 
 ---
 
