@@ -179,6 +179,33 @@ def run_setup_wizard(config_path: str) -> None:
     print('(Run with --reconfigure to change these settings later.)\n')
 
 
+def _input_with_timeout(prompt: str, timeout: float, default: str) -> str:
+    """input() that falls back to `default` if nobody answers within
+    `timeout` seconds — a double-clicked exe has no one watching the console."""
+    print(f'{prompt} ', end='', flush=True)
+    if os.name == 'nt':
+        import msvcrt
+        deadline = time.time() + timeout
+        buf = ''
+        while time.time() < deadline:
+            if msvcrt.kbhit():
+                ch = msvcrt.getwche()
+                if ch in ('\r', '\n'):
+                    print()
+                    return buf.strip() or default
+                buf += ch
+            time.sleep(0.05)
+        print(default)
+        return default
+    else:
+        import select
+        ready, _, _ = select.select([sys.stdin], [], [], timeout)
+        if ready:
+            return sys.stdin.readline().strip() or default
+        print(default)
+        return default
+
+
 def _is_configured() -> bool:
     return bool(os.environ.get('VMFINDER_ADMIN_HASH')) and bool(os.environ.get('VC1_IP'))
 
@@ -195,7 +222,9 @@ def ensure_configured(force: bool = False) -> None:
                 return
             # FIX: a double-clicked exe has no way to pass --reconfigure, so
             # offer the choice here too whenever a saved config is found.
-            use_existing = input('Existing configuration found. Use it? [Y/n]: ').strip().lower()
+            use_existing = _input_with_timeout(
+                'Existing configuration found. Use it? [Y/n] (defaults to Y in 5s):', 5, 'y'
+            ).strip().lower()
             if use_existing not in ('n', 'no'):
                 return
             # falls through to run_setup_wizard below, which will offer to
