@@ -10,10 +10,11 @@ import hashlib
 import secrets
 import time
 import logging
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from functools import wraps
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
-from pyVim.connect import SmartConnect
+from pyVim.connect import SmartConnect, Disconnect
 from pyVmomi import vim
 
 # ---------------------------------------------------------------------------
@@ -70,6 +71,28 @@ def _prompt_admin_password() -> str:
         return hashlib.sha256(pw1.encode()).hexdigest()
 
 
+def _test_vcenter_connection(ip: str, user: str, pw: str, port: int, timeout: int = 8):
+    """Best-effort live check that these vCenter details actually work. Runs the
+    connect attempt in a background thread so a wrong IP/unreachable host can't
+    hang the wizard — pyVmomi's SmartConnect has no built-in connect timeout."""
+    pool = ThreadPoolExecutor(max_workers=1)
+
+    def _attempt():
+        si = SmartConnect(host=ip, user=user, pwd=pw, port=port)
+        Disconnect(si)
+
+    future = pool.submit(_attempt)
+    try:
+        future.result(timeout=timeout)
+        return True, None
+    except FutureTimeoutError:
+        return False, f'no response after {timeout}s — check the IP/FQDN and port'
+    except Exception as e:
+        return False, str(e)
+    finally:
+        pool.shutdown(wait=False)
+
+
 def _prompt_vcenters() -> list:
     servers = []
     idx = 1
@@ -78,19 +101,37 @@ def _prompt_vcenters() -> list:
         ans = input(f'Add vCenter #{idx}? [y/N]: ').strip().lower()
         if ans not in ('y', 'yes'):
             break
-        name = input('  Display name (e.g. DC-East): ').strip() or f'VCENTER{idx}'
-        ip = input('  IP address or FQDN: ').strip()
-        if not ip:
-            print('  IP/FQDN is required — skipping this entry.')
-            continue
-        user = input('  Username: ').strip()
-        pw = getpass.getpass('  Password: ')
-        port_raw = input('  Port [443]: ').strip()
-        try:
-            port = int(port_raw) if port_raw else 443
-        except ValueError:
-            port = 443
-        servers.append({'name': name, 'ip': ip, 'user': user, 'pass': pw, 'port': port})
+
+        while True:
+            name = input('  Display name (e.g. DC-East): ').strip() or f'VCENTER{idx}'
+            ip = input('  IP address or FQDN: ').strip()
+            if not ip:
+                print('  IP/FQDN is required, try again.\n')
+                continue
+            user = input('  Username: ').strip()
+            pw = getpass.getpass('  Password: ')
+            port_raw = input('  Port [443]: ').strip()
+            try:
+                port = int(port_raw) if port_raw else 443
+            except ValueError:
+                print(f'  {port_raw!r} is not a valid port number, defaulting to 443.')
+                port = 443
+
+            print('  Testing connection...')
+            ok, err = _test_vcenter_connection(ip, user, pw, port)
+            entry = {'name': name, 'ip': ip, 'user': user, 'pass': pw, 'port': port}
+            if ok:
+                print('  Connected successfully.\n')
+                servers.append(entry)
+                break
+
+            print(f'  Could not connect: {err}')
+            retry = input('  Re-enter these details? [Y/n] (n keeps them anyway): ').strip().lower()
+            if retry in ('n', 'no'):
+                servers.append(entry)
+                break
+            print()
+
         idx += 1
     return servers
 
