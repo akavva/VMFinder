@@ -64,16 +64,12 @@ jobs:
             throw "vmfinder.exe did not respond with HTTP 200 on port 5000 within 20 seconds"
           }
 
-      - name: Rename for release
-        shell: pwsh
-        run: Copy-Item "dist\vmfinder.exe" "dist\VMFinder.exe"
-
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           gh release create "${{ github.ref_name }}" \
-            "dist/VMFinder.exe" \
+            "dist/vmfinder.exe" \
             --title "VMFinder ${{ github.ref_name }}" \
             --generate-notes
