@@ -1,4 +1,4 @@
-from dotenv import load_dotenv
+from dotenv import load_dotenv, dotenv_values
 load_dotenv()
 import os
 import sys
@@ -10,20 +10,23 @@ import hashlib
 import secrets
 import time
 import logging
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from functools import wraps
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
-from pyVim.connect import SmartConnect
+from pyVim.connect import SmartConnect, Disconnect
 from pyVmomi import vim
+from _version import VERSION
 
 # ---------------------------------------------------------------------------
 # Paths — when run as a PyInstaller onefile binary, bundled data (templates/)
 # lives in the extracted temp dir (sys._MEIPASS); persistent files (config,
 # audit log) live in the user's config dir so they survive across runs
-# regardless of which directory the binary is launched from.
+# regardless of where the binary is launched from or that its bundle dir is
+# ephemeral.
 # ---------------------------------------------------------------------------
-BASE_DIR   = sys._MEIPASS if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
-CONFIG_DIR = os.environ.get('VMFINDER_HOME', os.path.join(os.path.expanduser('~'), '.config', 'vmfinder'))
+BASE_DIR    = sys._MEIPASS if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
+CONFIG_DIR  = os.environ.get('VMFINDER_HOME', os.path.join(os.path.expanduser('~'), '.config', 'vmfinder'))
 CONFIG_FILE = os.path.join(CONFIG_DIR, 'config.env')
 os.makedirs(CONFIG_DIR, exist_ok=True)
 
@@ -69,6 +72,28 @@ def _prompt_admin_password() -> str:
         return hashlib.sha256(pw1.encode()).hexdigest()
 
 
+def _test_vcenter_connection(ip: str, user: str, pw: str, port: int, timeout: int = 8):
+    """Best-effort live check that these vCenter details actually work. Runs the
+    connect attempt in a background thread so a wrong IP/unreachable host can't
+    hang the wizard — pyVmomi's SmartConnect has no built-in connect timeout."""
+    pool = ThreadPoolExecutor(max_workers=1)
+
+    def _attempt():
+        si = SmartConnect(host=ip, user=user, pwd=pw, port=port)
+        Disconnect(si)
+
+    future = pool.submit(_attempt)
+    try:
+        future.result(timeout=timeout)
+        return True, None
+    except FutureTimeoutError:
+        return False, f'no response after {timeout}s — check the IP/FQDN and port'
+    except Exception as e:
+        return False, str(e)
+    finally:
+        pool.shutdown(wait=False)
+
+
 def _prompt_vcenters() -> list:
     servers = []
     idx = 1
@@ -77,45 +102,108 @@ def _prompt_vcenters() -> list:
         ans = input(f'Add vCenter #{idx}? [y/N]: ').strip().lower()
         if ans not in ('y', 'yes'):
             break
-        name = input('  Display name (e.g. DC-East): ').strip() or f'VCENTER{idx}'
-        ip = input('  IP address or FQDN: ').strip()
-        if not ip:
-            print('  IP/FQDN is required — skipping this entry.')
-            continue
-        user = input('  Username: ').strip()
-        pw = getpass.getpass('  Password: ')
-        port_raw = input('  Port [443]: ').strip()
-        try:
-            port = int(port_raw) if port_raw else 443
-        except ValueError:
-            port = 443
-        servers.append({'name': name, 'ip': ip, 'user': user, 'pass': pw, 'port': port})
+
+        while True:
+            name = input('  Display name (e.g. DC-East): ').strip() or f'VCENTER{idx}'
+            ip = input('  IP address or FQDN: ').strip()
+            if not ip:
+                print('  IP/FQDN is required, try again.\n')
+                continue
+            user = input('  Username: ').strip()
+            pw = getpass.getpass('  Password: ')
+            port_raw = input('  Port [443]: ').strip()
+            try:
+                port = int(port_raw) if port_raw else 443
+            except ValueError:
+                print(f'  {port_raw!r} is not a valid port number, defaulting to 443.')
+                port = 443
+
+            print('  Testing connection...')
+            ok, err = _test_vcenter_connection(ip, user, pw, port)
+            entry = {'name': name, 'ip': ip, 'user': user, 'pass': pw, 'port': port}
+            if ok:
+                print('  Connected successfully.\n')
+                servers.append(entry)
+                break
+
+            print(f'  Could not connect: {err}')
+            retry = input('  Re-enter these details? [Y/n] (n keeps them anyway): ').strip().lower()
+            if retry in ('n', 'no'):
+                servers.append(entry)
+                break
+            print()
+
         idx += 1
     return servers
 
 
 def run_setup_wizard(config_path: str) -> None:
-    print('=' * 60)
-    print(' VMFinder — first-run setup')
-    print('=' * 60)
-    admin_hash = _prompt_admin_password()
-    servers = _prompt_vcenters()
+    existing = dotenv_values(config_path) if os.path.exists(config_path) else {}
+    existing_admin_hash = existing.get('VMFINDER_ADMIN_HASH')
+    existing_vc_lines = {k: v for k, v in existing.items() if k.startswith('VC')}
 
-    lines = [f'VMFINDER_ADMIN_HASH={admin_hash}']
-    for n, s in enumerate(servers, start=1):
-        lines += [
-            f"VC{n}_NAME={s['name']}",
-            f"VC{n}_IP={s['ip']}",
-            f"VC{n}_USER={s['user']}",
-            f"VC{n}_PASS={s['pass']}",
-            f"VC{n}_PORT={s['port']}",
-        ]
+    print('=' * 60)
+    print(' VMFinder — setup' if existing else ' VMFinder — first-run setup')
+    print('=' * 60)
+
+    if existing_admin_hash:
+        change = input('Change the admin password? [y/N]: ').strip().lower()
+        admin_hash = _prompt_admin_password() if change in ('y', 'yes') else existing_admin_hash
+    else:
+        admin_hash = _prompt_admin_password()
+
+    if existing_vc_lines:
+        change = input('Reconfigure vCenters? [y/N] (N keeps the existing list): ').strip().lower()
+        vc_lines = [f'{k}={v}' for k, v in existing_vc_lines.items()] if change not in ('y', 'yes') else None
+    else:
+        vc_lines = None
+
+    if vc_lines is None:
+        servers = _prompt_vcenters()
+        vc_lines = []
+        for n, s in enumerate(servers, start=1):
+            vc_lines += [
+                f"VC{n}_NAME={s['name']}",
+                f"VC{n}_IP={s['ip']}",
+                f"VC{n}_USER={s['user']}",
+                f"VC{n}_PASS={s['pass']}",
+                f"VC{n}_PORT={s['port']}",
+            ]
+
+    lines = [f'VMFINDER_ADMIN_HASH={admin_hash}'] + vc_lines
 
     with open(config_path, 'w') as f:
         f.write('\n'.join(lines) + '\n')
     os.chmod(config_path, 0o600)
     print(f'\nSaved configuration to {config_path}')
     print('(Run with --reconfigure to change these settings later.)\n')
+
+
+def _input_with_timeout(prompt: str, timeout: float, default: str) -> str:
+    """input() that falls back to `default` if nobody answers within
+    `timeout` seconds — a double-clicked exe has no one watching the console."""
+    print(f'{prompt} ', end='', flush=True)
+    if os.name == 'nt':
+        import msvcrt
+        deadline = time.time() + timeout
+        buf = ''
+        while time.time() < deadline:
+            if msvcrt.kbhit():
+                ch = msvcrt.getwche()
+                if ch in ('\r', '\n'):
+                    print()
+                    return buf.strip() or default
+                buf += ch
+            time.sleep(0.05)
+        print(default)
+        return default
+    else:
+        import select
+        ready, _, _ = select.select([sys.stdin], [], [], timeout)
+        if ready:
+            return sys.stdin.readline().strip() or default
+        print(default)
+        return default
 
 
 def _is_configured() -> bool:
@@ -130,7 +218,17 @@ def ensure_configured(force: bool = False) -> None:
         # stray local .env (e.g. leftover placeholder values from a git clone)
         load_dotenv(CONFIG_FILE, override=True)
         if _is_configured():
-            return
+            if not sys.stdin.isatty():
+                return
+            # FIX: a double-clicked exe has no way to pass --reconfigure, so
+            # offer the choice here too whenever a saved config is found.
+            use_existing = _input_with_timeout(
+                'Existing configuration found. Use it? [Y/n] (defaults to Y in 5s):', 5, 'y'
+            ).strip().lower()
+            if use_existing not in ('n', 'no'):
+                return
+            # falls through to run_setup_wizard below, which will offer to
+            # keep/change the admin password and vCenters independently
     if not sys.stdin.isatty():
         log.warning(
             "VMFinder is not configured (missing VMFINDER_ADMIN_HASH / VC1_IP) and no "
@@ -145,8 +243,14 @@ def ensure_configured(force: bool = False) -> None:
 _arg_parser = argparse.ArgumentParser(description='VMFinder')
 _arg_parser.add_argument('--reconfigure', action='store_true',
                           help='Re-run the interactive setup wizard, replacing any saved configuration')
+_arg_parser.add_argument('--version', action='store_true', help='Print the version and exit')
 cli_args, _ = _arg_parser.parse_known_args()
 
+if cli_args.version:
+    print(f'VMFinder {VERSION}')
+    sys.exit(0)
+
+log.info(f'VMFinder {VERSION} starting...')
 ensure_configured(force=cli_args.reconfigure)
 
 # ---------------------------------------------------------------------------
@@ -166,12 +270,18 @@ while True:
     ip = os.environ.get(f'VC{i}_IP')
     if not ip:
         break
+    port_raw = os.environ.get(f'VC{i}_PORT', '443')
+    try:
+        port = int(port_raw)
+    except ValueError:
+        log.warning("VC%d_PORT=%r is not a valid port number, defaulting to 443.", i, port_raw)
+        port = 443
     vcenter_servers.append({
         'name':     os.environ.get(f'VC{i}_NAME',  f'VCENTER{i}'),
         'IP':       ip,
         'username': os.environ.get(f'VC{i}_USER',  ''),
         'password': os.environ.get(f'VC{i}_PASS',  ''),
-        'port':     int(os.environ.get(f'VC{i}_PORT', 443))
+        'port':     port
     })
     i += 1
 
@@ -227,6 +337,23 @@ def check_password(password: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Task helper
+# ---------------------------------------------------------------------------
+def wait_for_task(task, timeout: int = 30):
+    """Block until a vCenter Task reaches a terminal state. ReconfigVM_Task /
+    PowerOn etc. return immediately with a pending Task — without this, a
+    route can report success before vCenter has actually applied the change,
+    so a cache refresh run right after can still read the pre-change state."""
+    start = time.time()
+    while task.info.state not in (vim.TaskInfo.State.success, vim.TaskInfo.State.error):
+        if time.time() - start > timeout:
+            raise TimeoutError(f'Task did not complete within {timeout}s')
+        time.sleep(0.5)
+    if task.info.state == vim.TaskInfo.State.error:
+        raise Exception(task.info.error.msg if task.info.error else 'Task failed')
+
+
+# ---------------------------------------------------------------------------
 # Audit logger
 # ---------------------------------------------------------------------------
 def audit(action: str, vm_name: str, detail: str = '', success: bool = True):
@@ -261,7 +388,7 @@ class KeepAlive(threading.Thread):
 
     def _reconnect(self):
         log.warning(f"KeepAlive: lost connection to {self.vcenter_info['IP']}, reconnecting...")
-        new_conn = connect_to_vcenter(self.vcenter_info, silent=True)
+        new_conn, _ = connect_to_vcenter(self.vcenter_info, silent=True)
         if new_conn:
             self.service_instance = new_conn
             new_data = cache_vm_info(new_conn, self.vcenter_info['name'], silent=True)
@@ -287,10 +414,10 @@ def connect_to_vcenter(vcenter_info: dict, silent: bool = False):
         keep_alive = KeepAlive(service_instance, vcenter_info)
         keep_alive.start()
         vcenter_info['connection'] = service_instance
-        return service_instance
+        return service_instance, vcenter_info
     except Exception as e:
         log.error(f"Error connecting to vCenter {vcenter_info['IP']}: {e}")
-        return None
+        return None, vcenter_info
 
 
 # ---------------------------------------------------------------------------
@@ -403,7 +530,7 @@ log.info("Initializing connections and building memory cache maps...")
 connected_vcenter_names = []
 
 for srv in vcenter_servers:
-    conn = connect_to_vcenter(srv)
+    conn, _ = connect_to_vcenter(srv)
     if conn:
         with cache_lock:
             vm_cache[srv['name']] = cache_vm_info(conn, srv['name'])
@@ -419,7 +546,7 @@ if connected_vcenter_names:
 # ---------------------------------------------------------------------------
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', version=VERSION)
 
 
 @app.route('/search', methods=['GET'])
@@ -459,7 +586,12 @@ def search_vms():
                                 'network_name':  dev.backing.network.name
                                 if hasattr(dev.backing, 'network') and dev.backing.network
                                 else None,
-                                'mac_address':   dev.macAddress
+                                'mac_address':   dev.macAddress,
+                                # FIX: report the actual live connection state — the
+                                # network/port-group assignment (network_name) stays
+                                # in place after /disconnect, only connectable.connected
+                                # flips, so the UI must key off this, not network_name.
+                                'connected':     bool(dev.connectable and dev.connectable.connected)
                             })
 
                 results.append({
@@ -516,7 +648,7 @@ def disconnect_network_adapter_route():
                     connected=False, startConnected=False
                 )
                 spec.deviceChange = [change]
-                target_vm.ReconfigVM_Task(spec=spec)
+                wait_for_task(target_vm.ReconfigVM_Task(spec=spec))
                 audit('disconnect', vm_name, f'adapter={adapter_name}')
                 return jsonify({'message': f'Interface {adapter_name} completely isolated.'}), 200
             except Exception as e:
@@ -551,7 +683,7 @@ def control_vm():
 
     try:
         if action == 'power_on':
-            target_vm.PowerOn()
+            wait_for_task(target_vm.PowerOn())
         elif action == 'reboot':
             target_vm.RebootGuest()
         elif action == 'shutdown':

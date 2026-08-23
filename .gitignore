@@ -5,3 +5,5 @@ build/
 dist/
 *.spec
 vmfinder_audit.log
+CLAUDE.md
+version_info.txt
