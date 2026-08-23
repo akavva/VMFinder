@@ -89,9 +89,14 @@ jobs:
     runs-on: ubuntu-latest
     # glibc 2.28 (AlmaLinux 8) so the binary also starts on RHEL/Rocky 8,
     # Ubuntu 20.04 and Debian 10 — see .github/workflows/linux-build.yml.
+    # The /opt/python/cpXXX-cpXXX interpreters this image ships for building
+    # portable wheels are compiled without --enable-shared (manylinux policy),
+    # so PyInstaller can't link against libpython from them. The image's
+    # system /usr/bin/python3.12 is a normal dynamically-linked build, so use
+    # that instead.
     container: quay.io/pypa/manylinux_2_28_x86_64
     env:
-      PYTHON: /opt/python/cp312-cp312/bin/python3
+      PYTHON: /usr/bin/python3.12
     steps:
       - uses: actions/checkout@v4
 

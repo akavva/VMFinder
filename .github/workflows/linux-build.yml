@@ -12,9 +12,14 @@ jobs:
     # RHEL/Rocky 8, Ubuntu 20.04 and Debian 10. A PyInstaller binary will not
     # run on a glibc older than the one it was built against, and the default
     # ubuntu-latest runner would silently limit us to Ubuntu 24.04+.
+    # The /opt/python/cpXXX-cpXXX interpreters this image ships for building
+    # portable wheels are compiled without --enable-shared (manylinux policy),
+    # so PyInstaller can't link against libpython from them. The image's
+    # system /usr/bin/python3.12 is a normal dynamically-linked build, so use
+    # that instead.
     container: quay.io/pypa/manylinux_2_28_x86_64
     env:
-      PYTHON: /opt/python/cp312-cp312/bin/python3
+      PYTHON: /usr/bin/python3.12
     steps:
       - uses: actions/checkout@v4
 
