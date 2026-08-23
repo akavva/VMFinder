@@ -190,7 +190,15 @@ def ensure_configured(force: bool = False) -> None:
         # stray local .env (e.g. leftover placeholder values from a git clone)
         load_dotenv(CONFIG_FILE, override=True)
         if _is_configured():
-            return
+            if not sys.stdin.isatty():
+                return
+            # FIX: a double-clicked exe has no way to pass --reconfigure, so
+            # offer the choice here too whenever a saved config is found.
+            use_existing = input('Existing configuration found. Use it? [Y/n]: ').strip().lower()
+            if use_existing not in ('n', 'no'):
+                return
+            # falls through to run_setup_wizard below, which will offer to
+            # keep/change the admin password and vCenters independently
     if not sys.stdin.isatty():
         log.warning(
             "VMFinder is not configured (missing VMFINDER_ADMIN_HASH / VC1_IP) and no "
