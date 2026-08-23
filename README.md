@@ -7,55 +7,22 @@ VMFinder is a lightweight Flask app for locating and managing VMs across multipl
 ## Requirements
 
 * Access credentials for one or more vCenter servers.
-* **Windows:** The `vmfinder.exe` from [Releases](https://github.com/akavva/VMFinder/releases).
-* **Linux:** The `vmfinder-linux-x86_64` binary from [Releases](https://github.com/akavva/VMFinder/releases). Needs glibc 2.28 or newer (RHEL/Rocky/Alma 8+, Ubuntu 20.04+, Debian 10+).
+* **Windows:** the `.exe` from [Releases](https://github.com/akavva/VMFinder/releases/latest) — nothing else to install.
+* **Linux:** the `-linux-x86_64` binary from [Releases](https://github.com/akavva/VMFinder/releases/latest). Needs glibc 2.28+ (RHEL/Rocky/Alma 8+, Ubuntu 20.04+, Debian 10+).
 
 ---
 
-## Windows quick start
+## Quick start
 
-1. Download `vmfinder.exe` from the [Releases page](https://github.com/akavva/VMFinder/releases/latest) and run it.
-2. On first run it walks you through a setup wizard — admin password, then your vCenter(s) (name, IP/FQDN, username, password, port). It tests each vCenter connection live and lets you fix any typos before saving.
-3. **Allow the app through Windows Firewall.** Windows may prompt you to allow it automatically the first time it runs — click **Allow**. If it doesn't prompt (e.g. a locked-down machine), add the rule yourself in an elevated PowerShell:
-   ```powershell
-   netsh advfirewall firewall add rule name="VMFinder" dir=in action=allow protocol=TCP localport=5000
-   ```
+1. Download the binary for your OS from the [latest release](https://github.com/akavva/VMFinder/releases/latest).
+2. **Windows:** just run it. Allow it through Windows Firewall when prompted (or add the rule yourself: `netsh advfirewall firewall add rule name="VMFinder" dir=in action=allow protocol=TCP localport=5000`).
+   **Linux:** `chmod +x vmfinder-*-linux-x86_64 && ./vmfinder-*-linux-x86_64`. Open port 5000 if you need to reach it from another machine: `sudo firewall-cmd --add-port=5000/tcp --permanent && sudo firewall-cmd --reload` (RHEL/Rocky) or `sudo ufw allow 5000/tcp` (Debian/Ubuntu).
+3. First run walks you through a setup wizard — admin password, then your vCenter(s) (name, IP/FQDN, username, password, port). It tests each connection live before saving.
 4. Open **http://localhost:5000** in a browser.
 
-To change the saved vCenters or admin password later: `vmfinder.exe --reconfigure`.
+Re-run with `--reconfigure` to change the saved vCenters or admin password later.
 
-> Prefer to build it yourself instead of using the release binary? Install [Python 3.12+](https://www.python.org/downloads/windows/) (check "Add python.exe to PATH"), clone this repo, and run `build.bat` — it creates a virtual environment, installs dependencies, and produces `dist\vmfinder.exe`. PyInstaller doesn't cross-compile, so this has to run on Windows.
-
----
-
-## Linux quick start
-
-1. Download the binary, make it executable, and run it:
-   ```bash
-   curl -L -o vmfinder https://github.com/akavva/VMFinder/releases/latest/download/vmfinder-linux-x86_64
-   chmod +x vmfinder
-   ./vmfinder
-   ```
-2. On first run it walks you through a setup wizard — admin password, then your vCenter(s) (name, IP/FQDN, username, password, port). It tests each vCenter connection live and lets you fix any typos before saving.
-3. **Open port 5000** if you need to reach it from another machine (skip this if you're browsing from the same host):
-   ```bash
-   sudo ufw allow 5000/tcp                            # Debian/Ubuntu
-   sudo firewall-cmd --add-port=5000/tcp --permanent  # RHEL/Rocky/Fedora
-   sudo firewall-cmd --reload
-   ```
-4. Open **http://localhost:5000** in a browser.
-
-To change the saved vCenters or admin password later: `./vmfinder --reconfigure`.
-
-Two things that trip people up:
-
-* **`/tmp` mounted `noexec`** (common on hardened hosts) stops the binary unpacking itself, and it exits immediately. Point it elsewhere:
-  ```bash
-  mkdir -p ~/.cache/vmfinder && TMPDIR=~/.cache/vmfinder ./vmfinder
-  ```
-* **`GLIBC_2.28 not found`** means the host is older than RHEL 8 / Ubuntu 20.04. Run from source there instead.
-
-> Prefer to build it yourself instead of using the release binary? Clone this repo and run `./build.sh` — it creates a virtual environment, installs dependencies, and produces `dist/vmfinder`. PyInstaller doesn't cross-compile, so this has to run on Linux. Pass `VMFINDER_VERSION=v1.2.3` to stamp a version into the binary, and `PYTHON=/path/to/python3` to pick the interpreter.
+Prefer to build it yourself? `build.bat` (Windows) or `./build.sh` (Linux) — see [Running from source](#running-from-source).
 
 ---
 
